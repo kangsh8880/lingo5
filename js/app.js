@@ -443,12 +443,14 @@
   /* =====================================================
    * 2-1. 말하기 번역 (뜻 언어로 말하기 → 학습 언어로 번역)
    * ===================================================== */
-  const SP = { rev: false, busy: false, last: null };
+  const SP = { rev: false, busy: false, last: null, mode: 'voice', psl: null, photo: null, img: '' };
   function spDir() { const s = L(); return SP.rev ? { from: s.target, to: s.native } : { from: s.native, to: s.target }; }
 
   R.speak = function () {
+    if (SP.mode === 'photo') return drawPhoto();
     const el = $('#view-speak'), d = spDir();
     el.innerHTML = `
+      ${spSeg()}
       <div class="panel center">
         <h2>${t('speakTitle')}</h2>
         <div class="dir">
@@ -470,6 +472,7 @@
         <div class="chart-head"><h3>${t('history')}</h3>${st.talk.length ? `<button class="btn" id="spClear" type="button">${t('clearHist')}</button>` : ''}</div>
         <div id="spHist"></div>
       </div>`;
+    bindSeg();
     $('#spSwap').onclick = () => { Translator.stopListen(); SP.rev = !SP.rev; SP.last = null; R.speak(); };
     $('#spMic').onclick = toggleMic;
     $('#spForm').onsubmit = e => { e.preventDefault(); const v = $('#spIn').value.trim(); if (v) { $('#spHeard').textContent = v; doTranslate(v); } };
@@ -477,6 +480,93 @@
     if (SP.last) drawSpResult(SP.last);
     drawSpHist();
   };
+
+  /* ---------- 말하기 / 사진 번역 전환 ---------- */
+  function spSeg() {
+    return `<div class="seg">${['voice', 'photo'].map(m => `<button class="${SP.mode === m ? 'on' : ''}" data-spm="${m}" type="button">${t(m === 'voice' ? 'spVoice' : 'spPhoto')}</button>`).join('')}</div>`;
+  }
+  function bindSeg() { $$('#view-speak [data-spm]').forEach(b => b.onclick = () => { Translator.stopListen(); SP.mode = b.dataset.spm; R.speak(); }); }
+
+  /* ---------- 사진 번역 (메뉴판·안내문) ---------- */
+  function drawPhoto() {
+    const el = $('#view-speak'), s = L();
+    if (SP.psl === null) SP.psl = s.target;
+    el.innerHTML = `${spSeg()}
+      <div class="panel center">
+        <h2>${t('spPhoto')}</h2>
+        <div class="grid2 left">
+          <div><label class="lbl" for="pSl">${t('photoLang')}</label>
+            <select id="pSl"><option value="auto">${t('autoDetect')}</option>${I18N.ORDER.map(k => `<option value="${k}">${LANGS[k].flag} ${esc(ln(k))}</option>`).join('')}</select></div>
+          <div><label class="lbl">&nbsp;</label><div class="pill green to-lang">${t('toLang', { lang: esc(ln(s.native)) })}</div></div>
+        </div>
+        <label class="btn blue wide file photo-btn">${t('photoBtn')}<input type="file" id="pFile" accept="image/*"></label>
+        <p class="hint" id="pStatus">${SP.photo ? t('ocrLines', { n: SP.photo.length }) : ''}</p>
+        ${SP.img ? `<img class="photo-prev" src="${SP.img}" alt="">` : ''}
+        <p class="note">${t('ocrNote')}</p>
+      </div>
+      <div id="pResult"></div>`;
+    bindSeg();
+    $('#pSl').value = SP.psl;
+    $('#pSl').onchange = e => { SP.psl = e.target.value; };
+    $('#pFile').onchange = e => { const f = e.target.files[0]; if (f) runOcr(f); e.target.value = ''; };
+    drawPhotoResult();
+  }
+  /* 사진 축소(긴 변 1600px, JPEG) → base64 */
+  function shrinkImage(file) {
+    return new Promise((res, rej) => {
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(url);
+        res(cv.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('image decode failed')); };
+      img.src = url;
+    });
+  }
+  async function runOcr(file) {
+    const st0 = $('#pStatus'); st0.textContent = t('ocrRunning'); st0.classList.add('busy');
+    SP.photo = null; $('#pResult').innerHTML = '';
+    try {
+      const dataUrl = await shrinkImage(file);
+      SP.img = dataUrl;
+      const prev = document.querySelector('.photo-prev');
+      if (prev) prev.src = dataUrl; else st0.insertAdjacentHTML('afterend', `<img class="photo-prev" src="${dataUrl}" alt="">`);
+      const r = await fetch(proxyUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'ocr', image: dataUrl.split(',')[1], mime: 'image/jpeg', sl: SP.psl, tl: L().native }) });
+      if (!r.ok) throw new Error('GAS HTTP ' + r.status);
+      const body = await r.text();
+      let d; try { d = JSON.parse(body); } catch (e) { throw new Error('GAS: OCR API not deployed'); }
+      if (!d.ok) throw new Error(d.error);
+      SP.photo = d.lines.map(x => ({ ...x, saved: false }));
+      if (!$('#view-speak').classList.contains('active') || SP.mode !== 'photo') return;
+      $('#pStatus').textContent = SP.photo.length ? t('ocrLines', { n: SP.photo.length }) : t('ocrNone');
+      drawPhotoResult();
+      if (SP.psl !== 'auto') SP.photo.slice(0, 6).forEach(x => TTS.prefetch(x.src, SP.psl, proxyUrl()));
+    } catch (e) {
+      const el = $('#pStatus'); if (el) el.textContent = '';
+      toast(t('ocrFail', { m: (e && e.message) || e }), 'err');
+    } finally { const el = $('#pStatus'); if (el) el.classList.remove('busy'); }
+  }
+  function drawPhotoResult() {
+    const box = $('#pResult'); if (!box || !SP.photo || !SP.photo.length) return;
+    const sl = SP.psl, nat = L().native;
+    box.innerHTML = `<div class="wlist">${SP.photo.map((x, i) => `
+      <div class="wrow">
+        ${sl !== 'auto' ? `<button class="ic" data-pplay="${i}" type="button">🔊</button>` : ''}
+        <div class="wtxt"><b class="lang-${sl}">${esc(x.src)}</b><span class="mean dst-line">${esc(x.dst)}</span></div>
+        ${x.saved ? `<span class="badge b-done">${t('savedMine')}</span>` : (sl !== 'auto' && sl !== nat ? `<button class="ic" data-psave="${i}" type="button" title="${esc(t('saveMine'))}">＋</button>` : '')}
+      </div>`).join('')}</div>`;
+    $$('#pResult [data-pplay]').forEach(b => b.onclick = () => { const x = SP.photo[+b.dataset.pplay]; say({ [sl]: x.src }, sl); });
+    $$('#pResult [data-psave]').forEach(b => b.onclick = () => {
+      const x = SP.photo[+b.dataset.psave]; if (x.saved) return;
+      const c = { id: 'c' + Date.now().toString(36), cat: 'custom', ko: '', vi: '', en: '', zh: '', ja: '', pron: { zh: '', ja: '' } };
+      c[sl] = x.src; c[nat] = x.dst; st.custom.push(c); x.saved = true; save(); S = null;
+      toast(t('added')); drawPhotoResult();
+    });
+  }
 
   function toggleMic() {
     if (Translator.isListening()) { Translator.stopListen(); return; }
