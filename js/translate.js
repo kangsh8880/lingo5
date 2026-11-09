@@ -1,5 +1,6 @@
 /* 번역·음성인식 서비스
- * 번역: Google 번역(gtx, 발음 표기 포함) → MyMemory 순으로 시도
+ * 번역: 본인 GAS(LanguageApp, 공식) → Google 번역(gtx) → MyMemory 순으로 시도
+ *       발음 표기(병음·로마자)는 Google gtx 응답에서만 제공되어, GAS 번역 시 gtx로 발음만 보조 조회
  * 음성인식: Web Speech API (Chrome / Edge / Android / iOS Safari 14.5+)
  */
 const Translator = (() => {
@@ -15,7 +16,7 @@ const Translator = (() => {
     const out = segs.filter(s => typeof s[0] === 'string').map(s => s[0]).join('').trim();
     const rm = segs.find(s => s[0] == null && typeof s[2] === 'string');
     if (!out) throw new Error('Google: empty');
-    return { text: out, pron: rm ? rm[2] : '', engine: 'Google' };
+    return { text: out, pron: rm ? rm[2] : '', srcPron: rm ? rm[3] : '', engine: 'Google' };
   }
 
   async function viaMyMemory(text, sl, tl) {
@@ -27,10 +28,24 @@ const Translator = (() => {
     return { text: String(d.responseData.translatedText || '').trim(), pron: '', engine: 'MyMemory' };
   }
 
-  async function translate(text, sl, tl) {
+  async function viaGAS(text, sl, tl, proxy) {
+    if (!proxy) throw new Error('GAS: no URL');
+    const url = proxy + (proxy.includes('?') ? '&' : '?') + 'action=translate&sl=' + CODE[sl] + '&tl=' + CODE[tl] + '&text=' + encodeURIComponent(text);
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('GAS HTTP ' + r.status);
+    const body = (await r.text()).trim();
+    let d;
+    try { d = JSON.parse(body); } catch (e) { throw new Error('GAS: translate API not deployed'); }
+    if (!d.ok) throw new Error('GAS: ' + d.error);
+    let pron = '';
+    if (['zh', 'ja', 'ko'].includes(tl)) { try { pron = (await viaGoogle(d.text, tl, tl === 'ko' ? 'en' : 'ko')).srcPron || ''; } catch (e) {} }
+    return { text: d.text, pron, engine: 'GAS LanguageApp' };
+  }
+
+  async function translate(text, sl, tl, proxy) {
     const errs = [];
-    for (const f of [viaGoogle, viaMyMemory]) {
-      try { return await f(text, sl, tl); }
+    for (const f of [viaGAS, viaGoogle, viaMyMemory]) {
+      try { return await f(text, sl, tl, proxy); }
       catch (e) { errs.push((e && e.message) || String(e)); }
     }
     throw new Error(errs.length + ' engines failed — ' + errs.join(' / '));

@@ -1,4 +1,7 @@
 /* 로컬 저장소 (브라우저별 저장, 실패 시 메모리로 동작) */
+/* 일일어학학습 GAS 웹앱 (베트남어 음성 프록시 + 번역 API) */
+const DEFAULT_PROXY = 'https://script.google.com/macros/s/AKfycbwE93izqo_K32-HnCqtbmBX-Z6mSvo5HbVCEQPiOrHlrhfzu-2c4doKejnozeXrpEyv/exec';
+
 const Store = (() => {
   const KEY = 'lingo5_v1';
   const defSettings = () => ({
@@ -8,7 +11,7 @@ const Store = (() => {
     front: 'target',     // 카드 앞면: target | native
     newPerDay: 10,       // 하루 신규 카드 수
     rate: 0.9,           // 음성 속도
-    proxy: '',           // GAS TTS 프록시 URL (선택)
+    proxy: '',           // GAS 프록시 URL (비우면 DEFAULT_PROXY)
     showPron: true,      // 발음 표기
     autoplay: true       // 카드 표시 시 자동 듣기
   });

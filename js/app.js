@@ -40,10 +40,47 @@
     if (L().native === 'ko' && lang !== 'ko' && c.kpron && c.kpron[lang]) parts.push('[' + c.kpron[lang] + ']');
     return parts.filter(Boolean).join('  ');
   }
+  function proxyUrl() { return L().proxy || DEFAULT_PROXY; }
   function say(c, lang) {
-    TTS.speak(c[lang], lang, { rate: L().rate, proxy: L().proxy })
+    TTS.speak(c[lang], lang, { rate: L().rate, proxy: proxyUrl() })
       .catch(e => toast(t('ttsFail', { lang: ln(lang), m: (e && e.message) || e }), 'err'));
   }
+  /* 취약 문장: 틀린 횟수(모름·오답·따라 말하기 미통과) 많은 순 */
+  function weakCards(n) {
+    return usable().map(c => ({ c, p: SRS.getP(st, c) })).filter(x => x.p && x.p.lapses > 0)
+      .sort((a, b) => b.p.lapses - a.p.lapses || a.p.box - b.p.box).slice(0, n || 10);
+  }
+  function diffHtml(r) {
+    return `<div class="diff">${r.parts.map(x => `<span class="tk ${x.ok ? 'ok' : 'ng'}">${esc(x.t)}</span>`).join(r.joiner)}</div>`;
+  }
+  function logShadow(pct) {
+    const g = SRS.todayLog(st);
+    g.speakN = (g.speakN || 0) + 1; g.speakSum = (g.speakSum || 0) + pct;
+  }
+  /* 따라 말하기 공통: 학습 언어로 듣고 채점 → cb(결과) */
+  function shadowListen(c, btn, cb) {
+    const lang = L().target;
+    if (Translator.isListening()) { Translator.stopListen(); return; }
+    TTS.stop();
+    const r = Translator.listen(lang, {
+      onInterim: () => {},
+      onFinal: txt => { const sc = Compare.score(c[lang], txt, lang, false); cb({ said: txt, ...sc }); },
+      onError: code => {
+        const msg = code === 'unsupported' ? t('srUnsupported') : code === 'not-allowed' || code === 'service-not-allowed' ? t('srDenied')
+          : code === 'no-speech' ? t('srNoSpeech') : code === 'aborted' ? '' : t('srOther', { m: code });
+        if (msg) toast(msg, 'err');
+      },
+      onEnd: () => { if (btn && btn.isConnected) btn.classList.remove('rec'); }
+    });
+    if (r && btn) btn.classList.add('rec');
+  }
+  function shadowBox(res) {
+    const pass = res.pct >= 80;
+    return `<div class="shadow-res ${pass ? 'ok' : 'ng'}">
+      <b>${t('scoreLbl', { n: res.pct.toFixed(1) })}</b> · ${pass ? t('passShadow') : t('failShadow')}
+      ${diffHtml(res)}<div class="note">${t('heardTxt', { a: esc(res.said) })}</div></div>`;
+  }
+
   function boxLabel(b) { return b < 0 ? t('bNone') : b >= 3 ? t('bDone') : t('bIng'); }
   function boxClass(b) { return b < 0 ? 'b-none' : b >= 3 ? 'b-done' : 'b-ing'; }
 
@@ -106,9 +143,9 @@
    * 1. 카드학습
    * ===================================================== */
   let S = null;
-  function newSession(extra) {
-    const q = SRS.buildQueue(usable(), st, extra);
-    S = {
+  function newSession(extra, onlyCards) {
+    const q = onlyCards ? { due: SRS.shuffle(onlyCards.slice()), fresh: [] } : SRS.buildQueue(usable(), st, extra);
+    S = { weak: !!onlyCards,
       queue: q.due.map(c => ({ c, kind: 'due' })).concat(q.fresh.map(c => ({ c, kind: 'new' }))),
       idx: 0, flipped: false, done: 0, again: 0, dueN: q.due.length, newN: q.fresh.length
     };
@@ -147,7 +184,10 @@
           ${s.showPron && pron(c, back) ? `<span class="pron">${esc(pron(c, back))}</span>` : ''}`
           : `<span class="hint">${t('tapToFlip')}</span>`}
       </button>
-      <div class="row center"><button class="btn round" id="play" type="button">🔊 ${t('listenLang', { lang: ln(s.target) })}</button></div>
+      ${S.weak ? `<div class="weak-banner">${t('weakSession', { n: S.dueN })}</div>` : ''}
+      <div class="row center gap wrap"><button class="btn round" id="play" type="button">🔊 ${t('listenLang', { lang: ln(s.target) })}</button>
+        <button class="btn round mic-s" id="shadow" type="button">${t('speakNow')}</button></div>
+      <div id="shadowRes"></div>
       ${S.flipped
         ? `<div class="grade">
             <button class="btn red" data-g="0" type="button">${t('g0')}<small>${t('seeAgain')}</small></button>
@@ -157,6 +197,10 @@
       <p class="keys">${t('keys', { g0: t('g0'), g1: t('g1'), g2: t('g2') })}</p>`;
     $('#card').onclick = flip;
     $('#play').onclick = () => say(c, s.target);
+    $('#shadow').onclick = e => shadowListen(c, e.currentTarget, res => {
+      logShadow(res.pct); if (res.pct < 80) { const p = SRS.getP(st, c); if (p) p.lapses++; }
+      save(); $('#shadowRes').innerHTML = shadowBox(res);
+    });
     if ($('#flip')) $('#flip').onclick = flip;
     $$('#view-study [data-g]').forEach(b => b.onclick = () => grade(+b.dataset.g));
     if (autoplay && s.autoplay && !S.flipped && front === s.target) say(c, s.target);
@@ -189,13 +233,14 @@
    * ===================================================== */
   let Q = null;
   const qcfg = { mode: 'meaning', count: 10, scope: 'all' };
-  const QMODES = { meaning: 'mMeaning', express: 'mExpress', listen: 'mListen' };
+  const QMODES = { meaning: 'mMeaning', express: 'mExpress', listen: 'mListen', dictation: 'mDictation', shadow: 'mShadow' };
 
   R.quiz = function () { if (!Q) drawQuizSetup(); else drawQuiz(false); };
 
   function quizPool() {
     let p = usable();
     if (qcfg.scope === 'star') p = p.filter(c => st.stars[c.id]);
+    else if (qcfg.scope === 'weak') { const w = new Set(weakCards(50).map(x => x.c.id)); p = p.filter(c => w.has(c.id)); }
     else if (qcfg.scope === 'learned') p = p.filter(c => SRS.boxOf(st, c) >= 0);
     else if (qcfg.scope !== 'all') p = p.filter(c => c.cat === qcfg.scope);
     return p;
@@ -211,12 +256,12 @@
         <div><label class="lbl" for="qCount">${t('qCount')}</label>
           <select id="qCount">${[5, 10, 20].map(n => `<option value="${n}" ${qcfg.count === n ? 'selected' : ''}>${t('nQ', { n })}</option>`).join('')}</select></div>
         <div><label class="lbl" for="qScope">${t('qScope')}</label>
-          <select id="qScope"><option value="all">${t('scAll')}</option><option value="learned">${t('scLearned')}</option><option value="star">${t('scStar')}</option>
+          <select id="qScope"><option value="all">${t('scAll')}</option><option value="learned">${t('scLearned')}</option><option value="star">${t('scStar')}</option><option value="weak">${t('scWeak')}</option>
           ${cats.map(k => `<option value="${k}">${esc(catName(k))}</option>`).join('')}</select></div>
       </div>
-      <p class="note">${t('qNoteWrong')}</p>
+      <p class="note">${t('qNoteWrong')}${qcfg.mode === 'dictation' ? '<br>' + t('dictRoman') : ''}</p>
       <button class="btn blue wide" id="qStart" type="button">${t('qStart')}</button></div>`;
-    $('#qScope').value = cats.includes(qcfg.scope) || ['all', 'learned', 'star'].includes(qcfg.scope) ? qcfg.scope : 'all';
+    $('#qScope').value = cats.includes(qcfg.scope) || ['all', 'learned', 'star', 'weak'].includes(qcfg.scope) ? qcfg.scope : 'all';
     $$('#view-quiz [data-mode]').forEach(b => b.onclick = () => { qcfg.mode = b.dataset.mode; drawQuizSetup(); });
     $('#qCount').onchange = e => qcfg.count = +e.target.value;
     $('#qScope').onchange = e => qcfg.scope = e.target.value;
@@ -239,6 +284,7 @@
   function drawQuiz(autoplay) {
     const el = $('#view-quiz'), s = L();
     if (Q.i >= Q.qs.length) return drawQuizResult();
+    if (Q.mode === 'dictation' || Q.mode === 'shadow') return drawQuizOpen(autoplay);
     const q = Q.qs[Q.i], c = q.c, answered = q.pick !== null;
     const tgtBlock = `<div class="q-main lang-${s.target}">${esc(c[s.target])}</div>${s.showPron && pron(c, s.target) ? `<div class="pron">${esc(pron(c, s.target))}</div>` : ''}`;
     let prompt;
@@ -263,6 +309,62 @@
     if ($('#qNext')) $('#qNext').onclick = () => { Q.i++; drawQuiz(true); };
     if (autoplay && !answered && (Q.mode === 'listen' || (Q.mode === 'meaning' && s.autoplay))) say(c, s.target);
   }
+  function commitQ(q, ok, pct) {
+    if (q.done) return;
+    q.done = true; q.pick = ok ? q.ans : -1;
+    const log = SRS.todayLog(st);
+    log.quizN++;
+    if (ok) { Q.ok++; log.quizOK++; } else SRS.lapse(st, q.c);
+    if (Q.mode === 'shadow') logShadow(pct);
+    save();
+  }
+  function drawQuizOpen(autoplay) {
+    const el = $('#view-quiz'), s = L(), q = Q.qs[Q.i], c = q.c, lang = s.target;
+    const tgt = `<div class="q-main lang-${lang}">${esc(c[lang])}</div>${s.showPron && pron(c, lang) ? `<div class="pron">${esc(pron(c, lang))}</div>` : ''}`;
+    let body = '';
+    if (Q.mode === 'dictation') {
+      body = `<div class="qbox">${q.res ? tgt : `<div class="q-main">🎧</div><div class="hint">${t('dictHint', { lang: esc(ln(lang)) })}</div>`}
+          <div class="hint">${esc(c[s.native])}</div>
+          <button class="btn round" id="qPlay" type="button">🔊 ${t('replay')}</button></div>
+        ${q.res ? `<div class="feedback ${q.res.result === 'ok' ? 'ok' : 'ng'}">${q.res.result === 'ok' ? t('right') : q.res.result === 'partial' ? t('partial') : t('wrongAdded')}
+            ${diffHtml(q.res)}<div class="fb-detail">${t('yourAns', { a: esc(q.input) })}</div></div>`
+          : `<form class="type-row" id="dForm"><input id="dIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" class="lang-${lang}">
+            <button class="btn blue" type="submit">${t('check')}</button></form>`}`;
+    } else {
+      body = `<div class="qbox">${tgt}<div class="hint">${esc(c[s.native])}</div>
+          <div class="row center gap wrap"><button class="btn round" id="qPlay" type="button">🔊 ${t('listen')}</button>
+          <button class="btn round mic-s" id="qMic" type="button">${q.res ? t('speakAgain') : t('speakNow')}</button></div>
+          <div class="hint">${t('shadowHint')}</div></div>
+        ${q.res ? shadowBox(q.res) : ''}`;
+    }
+    const canNext = Q.mode === 'dictation' ? !!q.res : !!q.res;
+    el.innerHTML = `
+      <div class="meta"><span class="pill blue">${t(QMODES[Q.mode])}</span><span class="pill">${Q.i + 1} / ${Q.qs.length}</span><span class="pill green">${t('correctN', { n: Q.ok })}</span></div>
+      <div class="bar"><i style="width:${Math.round(Q.i / Q.qs.length * 100)}%"></i></div>
+      ${body}
+      ${canNext ? `<button class="btn blue wide" id="qNext" type="button">${Q.i + 1 < Q.qs.length ? t('next') : t('seeResult')}</button>` : ''}`;
+    $('#qPlay').onclick = () => say(c, lang);
+    if ($('#dForm')) {
+      $('#dIn').focus();
+      $('#dForm').onsubmit = e => {
+        e.preventDefault();
+        const v = $('#dIn').value.trim(); if (!v) return;
+        q.input = v; q.res = Compare.dictation(c, lang, v);
+        commitQ(q, q.res.result === 'ok', q.res.pct);
+        drawQuizOpen(false);
+      };
+    }
+    if ($('#qMic')) $('#qMic').onclick = e => shadowListen(c, e.currentTarget, res => {
+      if (!q.res || res.pct > q.res.pct) q.res = res;   // 여러 번 시도 시 최고 점수 반영
+      drawQuizOpen(false);
+    });
+    if ($('#qNext')) $('#qNext').onclick = () => {
+      if (Q.mode === 'shadow') commitQ(q, q.res.pct >= 80, q.res.pct);
+      Q.i++; drawQuiz(true);
+    };
+    if (autoplay && !q.res) say(c, lang);
+  }
+
   function answer(k) {
     const q = Q.qs[Q.i]; if (q.pick !== null) return;
     q.pick = k;
@@ -351,12 +453,12 @@
     SP.busy = true;
     $('#spHint').textContent = t('translating');
     try {
-      const res = await Translator.translate(text, d.from, d.to);
+      const res = await Translator.translate(text, d.from, d.to, proxyUrl());
       const item = { id: 't' + Date.now().toString(36), from: d.from, to: d.to, src: text, dst: res.text, pron: res.pron, engine: res.engine, saved: false };
       st.talk.unshift(item); st.talk = st.talk.slice(0, 30); save();
       SP.last = item;
       if ($('#view-speak').classList.contains('active')) { drawSpResult(item); drawSpHist(); }
-      if (L().autoplay) TTS.speak(item.dst, item.to, { rate: L().rate, proxy: L().proxy }).catch(() => {});
+      if (L().autoplay) TTS.speak(item.dst, item.to, { rate: L().rate, proxy: proxyUrl() }).catch(() => {});
     } catch (e) {
       toast(t('trFail', { m: (e && e.message) || e }), 'err');
     } finally {
@@ -546,7 +648,8 @@
   const KPIS = {
     studied: { key: 'kpiStudied', unit: 'uCard', dec: 0 },
     quizN: { key: 'kpiQuizN', unit: 'uQ', dec: 0 },
-    acc: { key: 'kpiAcc', unit: null, dec: 1 }
+    acc: { key: 'kpiAcc', unit: null, dec: 1 },
+    shadow: { key: 'kpiShadow', unit: 'uPt', dec: 1 }
   };
   const SC = { kpi: 'studied', days: 14 };
   function lastDays(n) {
@@ -569,13 +672,17 @@
     const tl = st.log[SRS.dateKey()] || { studied: 0 };
     let qn = 0, qok = 0; Object.values(st.log).forEach(g => { qn += g.quizN || 0; qok += g.quizOK || 0; });
     const acc = qn ? (qok / qn * 100).toFixed(1) : '0.0';
+    let spN = 0, spS = 0; Object.values(st.log).forEach(g => { spN += g.speakN || 0; spS += g.speakSum || 0; });
+    const spAvg = spN ? (spS / spN).toFixed(1) : '0.0';
     const tiles = [
       [t('kToday'), Math.round(tl.studied || 0), t('uCard'), ''],
       [t('kDue'), due, t('uCard'), due > 0 ? 'red-t' : ''],
       [t('kLearned'), learned, t('uItem'), 'blue-t'],
       [t('kAcc'), acc, '%', +acc >= 80 ? 'blue-t' : qn ? 'red-t' : ''],
+      [t('kShadow'), spAvg, t('uPt'), +spAvg >= 80 ? 'blue-t' : spN ? 'red-t' : ''],
       [t('kStreak'), streak(), t('uDay'), '']
     ];
+    const weak = weakCards(10);
     el.innerHTML = `
       <h2 class="sec">${t('statsTitle', { lang: esc(ln(s.target)) })} <span class="sub">${t('basis', { n: cards.length })}</span></h2>
       <div class="tiles">${tiles.map(x => `<div class="tile"><span>${x[0]}</span><b class="${x[3]}">${x[1]}<small>${x[2]}</small></b></div>`).join('')}</div>
@@ -598,7 +705,16 @@
         <tr class="sum"><td>${t('sum')}</td><td>${cards.length}</td><td>${cards.length - learned - ing}</td><td>${ing}</td><td>${learned}</td><td>${cards.length ? (learned / cards.length * 100).toFixed(1) : '0.0'}%</td></tr>
         </tbody></table>
         <p class="note">${t('masteryNote')}</p>
+      </div>
+      <div class="panel">
+        <div class="chart-head"><h3>${t('weakTitle')}</h3>${weak.length ? `<button class="btn red" id="weakGo" type="button">${t('weakStudy')}</button>` : ''}</div>
+        ${weak.length ? `<table class="tbl"><thead><tr><th>${esc(ln(s.target))}</th><th>${esc(ln(s.native))}</th><th>${t('thMiss')}</th><th>${t('thStage')}</th><th>🔊</th></tr></thead><tbody>
+          ${weak.map(x => `<tr><td class="lang-${s.target}">${esc(x.c[s.target])}</td><td>${esc(x.c[s.native])}</td><td class="red-t"><b>${x.p.lapses}</b></td><td>${x.p.box}</td>
+            <td><button class="ic" data-wplay="${x.c.id}" type="button">🔊</button></td></tr>`).join('')}</tbody></table>`
+          : `<div class="empty">${t('weakNone')}</div>`}
       </div>`;
+    $$('#view-stats [data-wplay]').forEach(b => b.onclick = () => { const c = allCards().find(x => x.id === b.dataset.wplay); if (c) say(c, s.target); });
+    if ($('#weakGo')) $('#weakGo').onclick = () => { newSession(0, weakCards(20).map(x => x.c)); location.hash = '#study'; };
     $('#sKpi').value = SC.kpi; $('#sDays').value = SC.days;
     $('#sKpi').onchange = e => { SC.kpi = e.target.value; drawChart(); };
     $('#sDays').onchange = e => { SC.days = +e.target.value; drawChart(); };
@@ -611,10 +727,11 @@
     const vals = days.map(d => {
       const g = st.log[d] || {};
       if (SC.kpi === 'acc') return g.quizN ? g.quizOK / g.quizN * 100 : 0;
+      if (SC.kpi === 'shadow') return g.speakN ? g.speakSum / g.speakN : 0;
       return g[SC.kpi] || 0;
     });
     const W = 720, H = 240, pl = 40, pr = 10, pt = 22, pb = 30;
-    const max = SC.kpi === 'acc' ? 100 : Math.max(4, Math.ceil(Math.max.apply(null, vals) / 4) * 4);
+    const max = SC.kpi === 'acc' || SC.kpi === 'shadow' ? 100 : Math.max(4, Math.ceil(Math.max.apply(null, vals) / 4) * 4);
     const bw = (W - pl - pr) / days.length;
     const y = v => pt + (H - pt - pb) * (1 - v / max);
     let g = '';
@@ -657,10 +774,18 @@
         <label class="lbl" for="sRate">${t('rate')} <b id="rateV">${s.rate}</b></label>
         <input type="range" id="sRate" min="0.5" max="1.3" step="0.1" value="${s.rate}">
         <label class="lbl" for="sProxy">${t('proxy')}</label>
-        <input type="url" id="sProxy" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(s.proxy)}">
+        <input type="url" id="sProxy" placeholder="${esc(DEFAULT_PROXY)}" value="${esc(s.proxy)}">
+        <p class="note">${t('proxyDefault')}</p>
         <p class="note">${t('device')}: <b>${TTS.isMobile ? t('mobile') : 'PC'}</b> · ${t('viVoice')}: ${viVoice ? esc(viVoice.name) : `<span class="red-t">${t('none')}</span>`}<br>
-        ${t('viOrder')}: <b class="blue-t">${TTS.viRoute(s.proxy).map(esc).join(' → ')}</b></p>
+        ${t('viOrder')}: <b class="blue-t">${TTS.viRoute(proxyUrl()).map(esc).join(' → ')}</b></p>
         <div class="row gap wrap">${I18N.ORDER.map(k => `<button class="btn" data-test="${k}" type="button">🔊 ${t('test', { lang: esc(ln(k)) })}</button>`).join('')}</div>
+      </div>
+      <div class="panel">
+        <h3>${t('install')}</h3>
+        <p class="note">${t('installNote')}</p>
+        ${PWA.standalone() ? `<p class="blue-t"><b>${t('installed')}</b></p>`
+          : `<div class="row gap wrap"><button class="btn blue" id="pwaBtn" type="button" ${PWA.canPrompt() ? '' : 'hidden'}>${t('installBtn')}</button></div>
+             <p class="note">${PWA.isIos() ? t('installIos') : PWA.supported() ? '' : t('installNA')}</p>`}
       </div>
       <div class="panel">
         <h3>${t('backup')}</h3>
@@ -672,6 +797,7 @@
     $('#sUi').value = s.ui; $('#sTarget').value = s.target; $('#sNative').value = s.native; $('#sFront').value = s.front; $('#sNew').value = String(s.newPerDay);
     $('#sPron').checked = s.showPron; $('#sAuto').checked = s.autoplay;
     $('#sUi').onchange = e => setUi(e.target.value);
+    if ($('#pwaBtn')) $('#pwaBtn').onclick = () => PWA.prompt().then(() => R.setup());
     $('#sTarget').onchange = e => setTarget(e.target.value);
     $('#sNative').onchange = e => setNative(e.target.value);
     $('#sFront').onchange = e => { s.front = e.target.value; save(); };
@@ -696,6 +822,22 @@
       else { b.dataset.armed = '1'; b.textContent = t('bkResetConfirm'); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = t('bkReset'); } }, 3000); }
     };
   };
+
+  /* ---------- PWA (홈 화면 설치·오프라인) ---------- */
+  const PWA = (() => {
+    let deferred = null;
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; if ($('#view-setup').classList.contains('active')) R.setup(); });
+    window.addEventListener('appinstalled', () => { deferred = null; toast(t('installed')); });
+    const supported = () => 'serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host);
+    if (supported()) { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
+    return {
+      supported,
+      canPrompt: () => !!deferred,
+      isIos: () => /iPhone|iPad|iPod/i.test(navigator.userAgent),
+      standalone: () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true,
+      prompt: async () => { if (!deferred) return; deferred.prompt(); try { await deferred.userChoice; } catch (e) {} deferred = null; }
+    };
+  })();
 
   /* ---------- 시작 ---------- */
   drawChrome();

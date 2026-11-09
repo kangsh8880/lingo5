@@ -58,7 +58,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .tabs a i { font-style: normal; font-size: 19px; }
 .tabs a.on { color: var(--blue); font-weight: 700; background: var(--p-blue2); }
 
-main { max-width: 760px; margin: 0 auto; padding: 16px; }
+main { max-width: 880px; margin: 0 auto; padding: 16px; }
 .view { display: none; }
 .view.active { display: block; animation: fade .2s ease; }
 @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
@@ -182,6 +182,19 @@ input[type=range] { width: 100%; accent-color: #8FB3D9; }
 .result .dst { font-size: 28px; font-weight: 700; color: var(--blue); margin: 8px 0 2px; word-break: keep-all; }
 .btn:disabled { opacity: .7; cursor: default; }
 
+/* 따라 말하기·받아쓰기 */
+.mic-s { background: var(--p-pink); }
+.mic-s.rec, .btn.rec { border-color: var(--line-strong); animation: pulse 1.2s infinite; }
+.diff { margin: 8px 0 4px; font-size: 19px; line-height: 1.7; word-break: keep-all; }
+.tk { padding: 1px 3px; border-radius: 5px; }
+.tk.ok { color: var(--blue); background: var(--p-blue2); }
+.tk.ng { color: var(--red); background: var(--p-pink); text-decoration: underline; }
+.shadow-res { margin: 12px 0; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); text-align: center; background: #fff; }
+.shadow-res.ok b { color: var(--blue); }
+.shadow-res.ng b { color: var(--red); }
+.weak-banner { text-align: center; margin: 10px 0 0; font-size: 13px; color: var(--red); font-weight: 700; }
+#dForm { margin-bottom: 12px; }
+
 /* 단어장 */
 .toolbar { display: grid; grid-template-columns: 1fr 150px auto; gap: 8px; align-items: center; }
 .count { margin-left: auto; font-size: 13px; color: var(--sub); }
@@ -206,7 +219,7 @@ input[type=range] { width: 100%; accent-color: #8FB3D9; }
 .csvout { margin-top: 10px; min-height: 90px; font-family: ui-monospace, monospace; font-size: 12px; }
 
 /* 학습현황 */
-.tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 14px; }
+.tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 14px; }
 .tile { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; box-shadow: var(--shadow); }
 .tile span { display: block; font-size: 12.5px; color: var(--sub); }
 .tile b { font-size: 26px; }
@@ -225,7 +238,7 @@ input[type=range] { width: 100%; accent-color: #8FB3D9; }
 .tbl tr.sum td { background: var(--p-blue2); font-weight: 700; }
 .panel .tbl td:first-child { text-align: left; }
 
-.foot { max-width: 760px; margin: 8px auto 0; padding: 0 16px 16px; font-size: 8pt; color: var(--sub); }
+.foot { max-width: 880px; margin: 8px auto 0; padding: 0 16px 16px; font-size: 8pt; color: var(--sub); }
 
 /* 토스트 */
 .toast {
@@ -247,8 +260,8 @@ input[type=range] { width: 100%; accent-color: #8FB3D9; }
   .toast { bottom: 30px; }
 }
 @media (max-width: 600px) {
-  .tiles { grid-template-columns: repeat(2, 1fr); }
-  .tiles .tile:last-child { grid-column: 1 / -1; }
+  .tiles { grid-template-columns: repeat(3, 1fr); }
+  .tile b { font-size: 21px; }
   .toolbar { grid-template-columns: 1fr 1fr; }
   .toolbar input { grid-column: 1 / -1; }
   .grid2 { grid-template-columns: 1fr; }
