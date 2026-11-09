@@ -443,7 +443,7 @@
   /* =====================================================
    * 2-1. 말하기 번역 (뜻 언어로 말하기 → 학습 언어로 번역)
    * ===================================================== */
-  const SP = { rev: false, busy: false, last: null, mode: 'voice', psl: null, photo: null, img: '' };
+  const SP = { rev: false, busy: false, last: null, mode: 'voice', psl: null, ptl: null, photo: null, img: '' };
   function spDir() { const s = L(); return SP.rev ? { from: s.target, to: s.native } : { from: s.native, to: s.target }; }
 
   R.speak = function () {
@@ -491,13 +491,15 @@
   function drawPhoto() {
     const el = $('#view-speak'), s = L();
     if (SP.psl === null) SP.psl = s.target;
+    if (SP.ptl === null) SP.ptl = s.native;
     el.innerHTML = `${spSeg()}
       <div class="panel center">
         <h2>${t('spPhoto')}</h2>
         <div class="grid2 left">
           <div><label class="lbl" for="pSl">${t('photoLang')}</label>
             <select id="pSl"><option value="auto">${t('autoDetect')}</option>${I18N.ORDER.map(k => `<option value="${k}">${LANGS[k].flag} ${esc(ln(k))}</option>`).join('')}</select></div>
-          <div><label class="lbl">&nbsp;</label><div class="pill green to-lang">${t('toLang', { lang: esc(ln(s.native)) })}</div></div>
+          <div><label class="lbl" for="pTl">${t('toLangLbl')}</label>
+            <select id="pTl">${I18N.ORDER.map(k => `<option value="${k}">${LANGS[k].flag} ${esc(ln(k))}</option>`).join('')}</select></div>
         </div>
         <div class="photo-btns">
           <label class="btn blue file photo-btn">${t('photoCam')}<input type="file" id="pCam" accept="image/*" capture="environment"></label>
@@ -511,6 +513,8 @@
     bindSeg();
     $('#pSl').value = SP.psl;
     $('#pSl').onchange = e => { SP.psl = e.target.value; };
+    $('#pTl').value = SP.ptl;
+    $('#pTl').onchange = e => { SP.ptl = e.target.value; };
     ['#pCam', '#pFile'].forEach(id => { $(id).onchange = e => { const f = e.target.files[0]; if (f) runOcr(f); e.target.value = ''; }; });
     drawPhotoResult();
   }
@@ -538,12 +542,12 @@
       const prev = document.querySelector('.photo-prev');
       if (prev) prev.src = dataUrl; else st0.insertAdjacentHTML('afterend', `<img class="photo-prev" src="${dataUrl}" alt="">`);
       const r = await fetch(proxyUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'ocr', image: dataUrl.split(',')[1], mime: 'image/jpeg', sl: SP.psl, tl: L().native }) });
+        body: JSON.stringify({ action: 'ocr', image: dataUrl.split(',')[1], mime: 'image/jpeg', sl: SP.psl, tl: SP.ptl }) });
       if (!r.ok) throw new Error('GAS HTTP ' + r.status);
       const body = await r.text();
       let d; try { d = JSON.parse(body); } catch (e) { throw new Error('GAS: OCR API not deployed'); }
       if (!d.ok) throw new Error(d.error);
-      SP.photo = d.lines.map(x => ({ ...x, saved: false }));
+      SP.photo = d.lines.map(x => ({ ...x, saved: false })); SP.photoTl = SP.ptl; SP.photoSl = SP.psl;
       if (!$('#view-speak').classList.contains('active') || SP.mode !== 'photo') return;
       $('#pStatus').textContent = SP.photo.length ? t('ocrLines', { n: SP.photo.length }) : t('ocrNone');
       drawPhotoResult();
@@ -555,7 +559,7 @@
   }
   function drawPhotoResult() {
     const box = $('#pResult'); if (!box || !SP.photo || !SP.photo.length) return;
-    const sl = SP.psl, nat = L().native;
+    const sl = SP.photoSl || SP.psl, nat = SP.photoTl || SP.ptl;
     box.innerHTML = `<div class="wlist">${SP.photo.map((x, i) => `
       <div class="wrow">
         ${sl !== 'auto' ? `<button class="ic" data-pplay="${i}" type="button">🔊</button>` : ''}
