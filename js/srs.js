@@ -61,7 +61,12 @@ const SRS = (() => {
     return INTERVALS[nb] + '일 후';
   }
 
+  function nextDays(st, card) {
+    const p = getP(st, card);
+    return INTERVALS[Math.min(6, (p ? p.box : 0) + 1)];
+  }
+
   function boxOf(st, card) { const p = getP(st, card); return p ? p.box : -1; }
 
-  return { INTERVALS, dateKey, dayIndex, key, shuffle, todayLog, buildQueue, grade, lapse, nextLabel, boxOf, getP };
+  return { INTERVALS, dateKey, dayIndex, key, shuffle, todayLog, buildQueue, grade, lapse, nextLabel, nextDays, boxOf, getP };
 })();

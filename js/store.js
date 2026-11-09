@@ -2,6 +2,7 @@
 const Store = (() => {
   const KEY = 'lingo5_v1';
   const defSettings = () => ({
+    ui: '',              // 화면 언어 (빈 값이면 브라우저 언어)
     target: 'vi',        // 학습 언어
     native: 'ko',        // 뜻 언어
     front: 'target',     // 카드 앞면: target | native
@@ -14,11 +15,12 @@ const Store = (() => {
   const def = () => ({ settings: defSettings(), progress: {}, log: {}, stars: {}, custom: [] });
   let mem = def();
   let persistent = true;
+  let fresh = true;
 
   function load() {
     try {
       const s = localStorage.getItem(KEY);
-      if (s) apply(JSON.parse(s));
+      if (s) { apply(JSON.parse(s)); fresh = false; }
     } catch (e) { persistent = false; }
     return mem;
   }
@@ -35,5 +37,5 @@ const Store = (() => {
     catch (e) { persistent = false; }
   }
   function reset() { apply(def()); save(); }
-  return { load, save, reset, apply, get: () => mem, isPersistent: () => persistent };
+  return { load, save, reset, apply, get: () => mem, isPersistent: () => persistent, isFresh: () => fresh };
 })();

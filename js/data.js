@@ -2,11 +2,11 @@
  * 형식: [카테고리, 한국어, 베트남어, 영어, 중국어, 병음, 일본어, 로마자]
  */
 const LANGS = {
-  vi: { name: '베트남어', short: 'VI', flag: '🇻🇳' },
-  en: { name: '영어',     short: 'EN', flag: '🇺🇸' },
-  zh: { name: '중국어',   short: 'ZH', flag: '🇨🇳' },
-  ja: { name: '일본어',   short: 'JA', flag: '🇯🇵' },
-  ko: { name: '한국어',   short: 'KO', flag: '🇰🇷' }
+  vi: { self: 'Tiếng Việt', name: '베트남어', short: 'VI', flag: '🇻🇳' },
+  en: { self: 'English', name: '영어',     short: 'EN', flag: '🇺🇸' },
+  zh: { self: '中文', name: '중국어',   short: 'ZH', flag: '🇨🇳' },
+  ja: { self: '日本語', name: '일본어',   short: 'JA', flag: '🇯🇵' },
+  ko: { self: '한국어', name: '한국어',   short: 'KO', flag: '🇰🇷' }
 };
 
 const CATS = {
