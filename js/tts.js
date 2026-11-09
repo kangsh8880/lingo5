@@ -19,9 +19,11 @@ const TTS = (() => {
   window._currentViAudio = null;
 
   /* 안드로이드 Chrome은 음성 목록이 늦게 채워짐 → 최대 1초 대기 */
+  let voicesWaited = false;   // 대기는 최초 1회만 (이후 지연 없음)
   function waitVoices() {
     return new Promise(res => {
-      if (!hasSynth) return res();
+      if (!hasSynth || voicesWaited) return res();
+      voicesWaited = true;
       let n = 0; const iv = setInterval(() => { loadVoices(); if (voices.length || ++n > 10) { clearInterval(iv); res(); } }, 100);
     });
   }
@@ -79,7 +81,27 @@ const TTS = (() => {
     });
   }
 
-  async function viaProxy(text, proxy, lang) {
+  /* ---------- 음성 파일 캐시: 메모리 → 기기 저장소(Cache Storage) → GAS 다운로드 ----------
+   * 한 번 받은 음성은 기기에 저장되어 다음부터 즉시 재생, 카드·문제가 화면에 나오면 미리 받아둠(prefetch) */
+  const AUDIO_CACHE = 'lingo5-audio-v1';
+  const mem = new Map();        // key → data URL
+  const inflight = new Map();   // key → Promise<data URL>
+  const akey = (lang, text) => lang + '|' + text;
+  const aurl = key => 'https://audio.lingo5.local/' + encodeURIComponent(key);
+  async function cacheGet(key) {
+    if (mem.has(key)) return mem.get(key);
+    try {
+      if (!('caches' in window)) return null;
+      const c = await caches.open(AUDIO_CACHE); const r = await c.match(aurl(key));
+      if (!r) return null;
+      const v = await r.text(); mem.set(key, v); return v;
+    } catch (e) { return null; }
+  }
+  async function cachePut(key, dataUrl) {
+    mem.set(key, dataUrl);
+    try { if ('caches' in window) { const c = await caches.open(AUDIO_CACHE); await c.put(aurl(key), new Response(dataUrl)); } } catch (e) {}
+  }
+  async function fetchProxy(text, proxy, lang) {
     const url = proxy + (proxy.includes('?') ? '&' : '?') + 'text=' + encodeURIComponent(text) + '&lang=' + GT[lang];
     const r = await fetch(url);
     if (!r.ok) throw new Error('GAS proxy HTTP ' + r.status);
@@ -88,8 +110,33 @@ const TTS = (() => {
     if (!body || body === 'error') throw new Error('GAS proxy: error');
     if (body.startsWith('{')) { const o = JSON.parse(body); b64 = o.audio || o.data || o.base64 || ''; }
     if (!b64) throw new Error('GAS proxy: empty');
-    if (!b64.startsWith('data:')) b64 = 'data:audio/mpeg;base64,' + b64;
-    return playAudio(b64, t('rProxy'));
+    return b64.startsWith('data:') ? b64 : 'data:audio/mpeg;base64,' + b64;
+  }
+  /* 캐시에 있으면 즉시, 받는 중이면 그 결과를, 없으면 새로 받기 */
+  function getAudio(text, proxy, lang) {
+    const key = akey(lang, text);
+    if (inflight.has(key)) return inflight.get(key);
+    const p = (async () => {
+      const hit = await cacheGet(key); if (hit) return hit;
+      const d = await fetchProxy(text, proxy, lang); await cachePut(key, d); return d;
+    })();
+    inflight.set(key, p);
+    p.then(() => inflight.delete(key), () => inflight.delete(key));
+    return p;
+  }
+  async function viaProxy(text, proxy, lang) {
+    if (!proxy) throw new Error('GAS proxy: no URL');
+    return playAudio(await getAudio(text, proxy, lang), t('rProxy'));
+  }
+  /* 기기 음성으로 바로 읽는 언어는 받을 필요 없음 */
+  function needsRemote(lang) { return lang === 'vi' ? !(!isMobile && googleVoice('vi')) : !hasVoice(lang); }
+  /* 미리 받기: 화면에 나온 카드·다음 카드 */
+  function prefetch(raw, lang, proxy) {
+    const text = clean(raw);
+    if (!text || !proxy || !lang) return;
+    if (!voices.length) loadVoices();
+    if (!needsRemote(lang)) return;
+    getAudio(text, proxy, lang).catch(() => {});
   }
 
   function viaDirect(text, client, lang) {
@@ -142,5 +189,5 @@ const TTS = (() => {
     throw new Error(lang === 'vi' ? t('eAll', { n: errs.length, m: errs.join(' / ') }) : errs.length + ' routes failed — ' + errs.join(' / '));
   }
 
-  return { speak, stop, clean, isMobile, pickVoice, viRoute, hasVoice, LANG_CODE };
+  return { speak, stop, clean, isMobile, pickVoice, viRoute, hasVoice, prefetch, LANG_CODE };
 })();

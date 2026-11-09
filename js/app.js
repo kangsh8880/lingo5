@@ -82,6 +82,8 @@
     return parts.filter(Boolean).join('  ');
   }
   function proxyUrl() { return L().proxy || DEFAULT_PROXY; }
+  /* 음성 미리 받기 (지연 제거) */
+  function pre(c, lang) { if (c && c[lang]) TTS.prefetch(c[lang], lang, proxyUrl()); }
   function say(c, lang) {
     TTS.speak(c[lang], lang, { rate: L().rate, proxy: proxyUrl() })
       .catch(e => toast(t('ttsFail', { lang: ln(lang), m: (e && e.message) || e }), 'err'));
@@ -236,6 +238,8 @@
             <button class="btn green" data-g="2" type="button">${t('g2')}<small>${t('afterDays', { n: SRS.nextDays(st, c) })}</small></button></div>`
         : `<div class="grade"><button class="btn blue wide" id="flip" type="button">${t('showMeaning')}</button></div>`}
       <p class="keys">${t('keys', { g0: t('g0'), g1: t('g1'), g2: t('g2') })}</p>`;
+    pre(c, s.target);
+    for (let k = 1; k <= 2; k++) { const nx = S.queue[S.idx + k]; if (nx) pre(nx.c, s.target); }
     $('#card').onclick = flip;
     $('#play').onclick = () => say(c, s.target);
     $('#shadow').onclick = e => shadowListen(c, e.currentTarget, res => {
@@ -345,6 +349,7 @@
       ${answered ? `<div class="feedback ${q.pick === q.ans ? 'ok' : 'ng'}">${q.pick === q.ans ? t('right') : t('wrongAdded')}
          <div class="fb-detail"><b>${esc(c[s.target])}</b> ${pron(c, s.target) ? `<span class="pron">${esc(pron(c, s.target))}</span>` : ''} = ${esc(c[s.native])}</div></div>
          <button class="btn blue wide" id="qNext" type="button">${Q.i + 1 < Q.qs.length ? t('next') : t('seeResult')}</button>` : ''}`;
+    pre(c, s.target); if (Q.qs[Q.i + 1]) pre(Q.qs[Q.i + 1].c, s.target);
     $('#qPlay').onclick = () => say(c, Q.mode === 'express' && !answered ? s.native : s.target);
     $$('#view-quiz [data-k]').forEach(b => b.onclick = () => answer(+b.dataset.k));
     if ($('#qNext')) $('#qNext').onclick = () => { Q.i++; drawQuiz(true); };
@@ -384,6 +389,7 @@
       <div class="bar"><i style="width:${Math.round(Q.i / Q.qs.length * 100)}%"></i></div>
       ${body}
       ${canNext ? `<button class="btn blue wide" id="qNext" type="button">${Q.i + 1 < Q.qs.length ? t('next') : t('seeResult')}</button>` : ''}`;
+    pre(c, lang); if (Q.qs[Q.i + 1]) pre(Q.qs[Q.i + 1].c, lang);
     $('#qPlay').onclick = () => say(c, lang);
     if ($('#dForm')) {
       $('#dIn').focus();
@@ -612,6 +618,7 @@
         ${c.cat === 'custom' ? `<button class="ic del" data-del="${c.id}" type="button">✕</button>` : ''}
       </div>`;
     }).join('') : `<div class="empty">${t('noMatch')}</div>`;
+    list.slice(0, 8).forEach(c => pre(c, s.target));
     $$('#wList [data-play]').forEach(b => b.onclick = () => { const c = allCards().find(x => x.id === b.dataset.play); if (c) say(c, s.target); });
     $$('#wList [data-star]').forEach(b => b.onclick = () => {
       const id = b.dataset.star; if (st.stars[id]) delete st.stars[id]; else st.stars[id] = 1; save(); drawWordList();
