@@ -12,7 +12,7 @@ const Store = (() => {
     showPron: true,      // 발음 표기
     autoplay: true       // 카드 표시 시 자동 듣기
   });
-  const def = () => ({ settings: defSettings(), progress: {}, log: {}, stars: {}, custom: [] });
+  const def = () => ({ settings: defSettings(), progress: {}, log: {}, stars: {}, custom: [], talk: [] });
   let mem = def();
   let persistent = true;
   let fresh = true;
@@ -31,6 +31,7 @@ const Store = (() => {
     mem.log = (o && o.log) || {};
     mem.stars = (o && o.stars) || {};
     mem.custom = Array.isArray(o && o.custom) ? o.custom : [];
+    mem.talk = Array.isArray(o && o.talk) ? o.talk : [];
   }
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(mem)); persistent = true; }

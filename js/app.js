@@ -84,13 +84,13 @@
   }
 
   /* ---------- 라우팅 ---------- */
-  const VIEWS = ['study', 'quiz', 'words', 'stats', 'setup'];
+  const VIEWS = ['study', 'quiz', 'speak', 'words', 'stats', 'setup'];
   function route() {
     let v = (location.hash || '').slice(1);
     if (!VIEWS.includes(v)) v = 'study';
     $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
     $$('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.view === v));
-    TTS.stop();
+    TTS.stop(); Translator.stopListen();
     R[v]();
   }
   window.addEventListener('hashchange', route);
@@ -282,6 +282,126 @@
     $('#qAgain').onclick = startQuiz;
     $('#qSetup').onclick = () => { Q = null; drawQuizSetup(); };
     $('#qStudy').onclick = () => { S = null; location.hash = '#study'; };
+  }
+
+  /* =====================================================
+   * 2-1. 말하기 번역 (뜻 언어로 말하기 → 학습 언어로 번역)
+   * ===================================================== */
+  const SP = { rev: false, busy: false, last: null };
+  function spDir() { const s = L(); return SP.rev ? { from: s.target, to: s.native } : { from: s.native, to: s.target }; }
+
+  R.speak = function () {
+    const el = $('#view-speak'), d = spDir();
+    el.innerHTML = `
+      <div class="panel center">
+        <h2>${t('speakTitle')}</h2>
+        <div class="dir">
+          <span class="pill ${SP.rev ? 'blue' : 'green'}">🗣 ${esc(ln(d.from))}</span>
+          <button class="ic swap" id="spSwap" type="button" title="${esc(t('swapDir'))}">⇄</button>
+          <span class="pill ${SP.rev ? 'green' : 'blue'}">${esc(ln(d.to))}</span>
+        </div>
+        <button class="mic" id="spMic" type="button" aria-label="mic">🎤</button>
+        <p class="hint" id="spHint">${t('tapToSpeak', { lang: esc(ln(d.from)) })}</p>
+        <div class="heard lang-${d.from}" id="spHeard"></div>
+        <form class="type-row" id="spForm">
+          <input id="spIn" type="text" placeholder="${esc(t('typeHere', { lang: ln(d.from) }))}">
+          <button class="btn blue" type="submit">${t('translateBtn')}</button>
+        </form>
+        <p class="note">${t('speakNote')}</p>
+      </div>
+      <div id="spResult"></div>
+      <div class="panel">
+        <div class="chart-head"><h3>${t('history')}</h3>${st.talk.length ? `<button class="btn" id="spClear" type="button">${t('clearHist')}</button>` : ''}</div>
+        <div id="spHist"></div>
+      </div>`;
+    $('#spSwap').onclick = () => { Translator.stopListen(); SP.rev = !SP.rev; SP.last = null; R.speak(); };
+    $('#spMic').onclick = toggleMic;
+    $('#spForm').onsubmit = e => { e.preventDefault(); const v = $('#spIn').value.trim(); if (v) { $('#spHeard').textContent = v; doTranslate(v); } };
+    if ($('#spClear')) $('#spClear').onclick = () => { st.talk = []; save(); R.speak(); };
+    if (SP.last) drawSpResult(SP.last);
+    drawSpHist();
+  };
+
+  function toggleMic() {
+    if (Translator.isListening()) { Translator.stopListen(); return; }
+    const d = spDir(), mic = $('#spMic'), hint = $('#spHint');
+    TTS.stop();
+    const r = Translator.listen(d.from, {
+      onInterim: txt => { $('#spHeard').textContent = txt; },
+      onFinal: txt => { $('#spHeard').textContent = txt; doTranslate(txt); },
+      onError: code => {
+        const msg = code === 'unsupported' ? t('srUnsupported') : code === 'not-allowed' || code === 'service-not-allowed' ? t('srDenied')
+          : code === 'no-speech' ? t('srNoSpeech') : code === 'aborted' ? '' : t('srOther', { m: code });
+        if (msg) toast(msg, 'err');
+      },
+      onEnd: () => { if (mic) mic.classList.remove('on'); if (hint && !SP.busy) hint.textContent = t('tapToSpeak', { lang: ln(spDir().from) }); }
+    });
+    if (r) { mic.classList.add('on'); hint.textContent = t('listening'); $('#spHeard').textContent = ''; }
+  }
+
+  async function doTranslate(text) {
+    const d = spDir();
+    SP.busy = true;
+    $('#spHint').textContent = t('translating');
+    try {
+      const res = await Translator.translate(text, d.from, d.to);
+      const item = { id: 't' + Date.now().toString(36), from: d.from, to: d.to, src: text, dst: res.text, pron: res.pron, engine: res.engine, saved: false };
+      st.talk.unshift(item); st.talk = st.talk.slice(0, 30); save();
+      SP.last = item;
+      if ($('#view-speak').classList.contains('active')) { drawSpResult(item); drawSpHist(); }
+      if (L().autoplay) TTS.speak(item.dst, item.to, { rate: L().rate, proxy: L().proxy }).catch(() => {});
+    } catch (e) {
+      toast(t('trFail', { m: (e && e.message) || e }), 'err');
+    } finally {
+      SP.busy = false;
+      const h = $('#spHint'); if (h) h.textContent = t('tapToSpeak', { lang: ln(spDir().from) });
+    }
+  }
+
+  function showPronFor(lang) { return ['zh', 'ja', 'ko'].includes(lang); }
+  function drawSpResult(it) {
+    $('#spResult').innerHTML = `
+      <div class="panel result">
+        <div class="src lang-${it.from}">${esc(it.src)}</div>
+        <div class="dst lang-${it.to}">${esc(it.dst)}</div>
+        ${it.pron && showPronFor(it.to) ? `<div class="pron">${esc(it.pron)}</div>` : ''}
+        <div class="row center gap wrap">
+          <button class="btn round" id="spPlay" type="button">🔊 ${t('listenLang', { lang: esc(ln(it.to)) })}</button>
+          <button class="btn ${it.saved ? '' : 'green'}" id="spSave" type="button" ${it.saved ? 'disabled' : ''}>${it.saved ? t('savedMine') : t('saveMine')}</button>
+          <button class="btn" id="spCopy" type="button">${t('copy')}</button>
+        </div>
+        <p class="note">${t('engine', { e: esc(it.engine) })}</p>
+      </div>`;
+    $('#spPlay').onclick = () => say({ [it.to]: it.dst }, it.to);
+    $('#spSave').onclick = () => saveTalk(it);
+    $('#spCopy').onclick = () => {
+      if (navigator.clipboard) navigator.clipboard.writeText(it.dst).then(() => toast(t('copied')), e => toast(t('clipFail', { m: e.name }), 'err'));
+    };
+  }
+  function saveTalk(it) {
+    if (it.saved) return;
+    const c = { id: 'c' + Date.now().toString(36), cat: 'custom', ko: '', vi: '', en: '', zh: '', ja: '', pron: { zh: '', ja: '' } };
+    c[it.from] = it.src; c[it.to] = it.dst;
+    if (it.pron && (it.to === 'zh' || it.to === 'ja')) c.pron[it.to] = it.pron;
+    st.custom.push(c); it.saved = true;
+    const h = st.talk.find(x => x.id === it.id); if (h) h.saved = true;
+    save(); S = null;
+    toast(t('added'));
+    if (SP.last && SP.last.id === it.id) { SP.last.saved = true; drawSpResult(SP.last); }
+    drawSpHist();
+  }
+  function drawSpHist() {
+    const box = $('#spHist'); if (!box) return;
+    box.innerHTML = st.talk.length ? `<div class="wlist">${st.talk.map(it => `
+      <div class="wrow">
+        <button class="ic" data-tplay="${it.id}" type="button">🔊</button>
+        <div class="wtxt"><b class="lang-${it.to}">${esc(it.dst)}</b>
+          ${it.pron && showPronFor(it.to) ? `<span class="pron">${esc(it.pron)}</span>` : ''}
+          <span class="mean">${LANGS[it.from].flag} ${esc(it.src)}</span></div>
+        ${it.saved ? `<span class="badge b-done">${t('savedMine')}</span>` : `<button class="ic" data-tsave="${it.id}" type="button" title="${esc(t('saveMine'))}">＋</button>`}
+      </div>`).join('')}</div>` : `<div class="empty">${t('histEmpty')}</div>`;
+    $$('#spHist [data-tplay]').forEach(b => b.onclick = () => { const it = st.talk.find(x => x.id === b.dataset.tplay); if (it) say({ [it.to]: it.dst }, it.to); });
+    $$('#spHist [data-tsave]').forEach(b => b.onclick = () => { const it = st.talk.find(x => x.id === b.dataset.tsave); if (it) saveTalk(it); });
   }
 
   /* =====================================================
