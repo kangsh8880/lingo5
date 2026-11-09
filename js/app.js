@@ -499,7 +499,10 @@
             <select id="pSl"><option value="auto">${t('autoDetect')}</option>${I18N.ORDER.map(k => `<option value="${k}">${LANGS[k].flag} ${esc(ln(k))}</option>`).join('')}</select></div>
           <div><label class="lbl">&nbsp;</label><div class="pill green to-lang">${t('toLang', { lang: esc(ln(s.native)) })}</div></div>
         </div>
-        <label class="btn blue wide file photo-btn">${t('photoBtn')}<input type="file" id="pFile" accept="image/*"></label>
+        <div class="photo-btns">
+          <label class="btn blue file photo-btn">${t('photoCam')}<input type="file" id="pCam" accept="image/*" capture="environment"></label>
+          <label class="btn file photo-btn">${t('photoGal')}<input type="file" id="pFile" accept="image/*"></label>
+        </div>
         <p class="hint" id="pStatus">${SP.photo ? t('ocrLines', { n: SP.photo.length }) : ''}</p>
         ${SP.img ? `<img class="photo-prev" src="${SP.img}" alt="">` : ''}
         <p class="note">${t('ocrNote')}</p>
@@ -508,7 +511,7 @@
     bindSeg();
     $('#pSl').value = SP.psl;
     $('#pSl').onchange = e => { SP.psl = e.target.value; };
-    $('#pFile').onchange = e => { const f = e.target.files[0]; if (f) runOcr(f); e.target.value = ''; };
+    ['#pCam', '#pFile'].forEach(id => { $(id).onchange = e => { const f = e.target.files[0]; if (f) runOcr(f); e.target.value = ''; }; });
     drawPhotoResult();
   }
   /* 사진 축소(긴 변 1600px, JPEG) → base64 */

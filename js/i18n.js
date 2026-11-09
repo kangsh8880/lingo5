@@ -104,6 +104,8 @@ const I18N = (() => {
     ocrFail: ['사진 번역 실패: {m}', 'Dịch ảnh thất bại: {m}', 'Photo translation failed: {m}', '拍照翻译失败：{m}', '写真翻訳失敗：{m}'],
     ocrLines: ['{n}줄 인식 · 번역 완료', 'Nhận dạng {n} dòng · đã dịch', '{n} lines recognized · translated', '识别 {n} 行 · 已翻译', '{n}行認識 · 翻訳完了'],
     ocrNote: ['사진은 본인 Google Drive에서 글자 인식 후 즉시 삭제되며 앱에도 저장되지 않습니다. 인터넷 연결이 필요합니다.', 'Ảnh được nhận dạng trên Google Drive rồi xóa ngay, không lưu trong ứng dụng. Cần Internet.', 'The photo is read in Google Drive, deleted right away and not stored in the app. Internet required.', '照片在 Google Drive 识别后立即删除，不保存在应用中。需要联网。', '写真はGoogleドライブで文字認識後すぐ削除され、アプリにも保存されません。ネット接続が必要です。'],
+    photoCam: ['📷 카메라로 찍기', '📷 Chụp ảnh', '📷 Take photo', '📷 拍照', '📷 カメラで撮影'],
+    photoGal: ['🖼 갤러리에서 고르기', '🖼 Chọn từ thư viện', '🖼 Choose from gallery', '🖼 从相册选择', '🖼 ギャラリーから選ぶ'],
     due: ['복습', 'Ôn tập', 'Review', '复习', '復習'],
     new: ['신규', 'Mới', 'New', '新', '新規'],
     again: ['다시', 'Lại', 'Again', '重来', 'もう一度'],
