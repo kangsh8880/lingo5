@@ -24,6 +24,11 @@ const I18N = (() => {
     cat_move: ['이동·교통', 'Đi lại · Giao thông', 'Getting Around', '出行·交通', '移動・交通'],
     cat_shop: ['쇼핑', 'Mua sắm', 'Shopping', '购物', '買い物'],
     cat_daily: ['일상', 'Hằng ngày', 'Daily Life', '日常', '日常'],
+    cat_word: ['기초 단어', 'Từ vựng cơ bản', 'Basic Words', '基础词汇', '基本単語'],
+    cat_hotel: ['숙박', 'Lưu trú', 'Accommodation', '住宿', '宿泊'],
+    cat_tour: ['관광', 'Du lịch', 'Sightseeing', '观光', '観光'],
+    cat_emerg: ['긴급·의료', 'Khẩn cấp · Y tế', 'Emergency & Medical', '紧急·医疗', '緊急・医療'],
+    cat_biz: ['문제해결·계약', 'Giải quyết vấn đề · Hợp đồng', 'Problems & Contracts', '问题处理·合同', 'トラブル・契約'],
     cat_custom: ['내 문장', 'Câu của tôi', 'My Phrases', '我的句子', 'マイフレーズ'],
 
     tabSpeak: ['말하기', 'Nói', 'Speak', '说话', '話す'],

@@ -32,7 +32,14 @@
   function save() { Store.save(); }
   function allCards() { return PHRASES.concat(st.custom); }
   function usable() { const s = L(); return allCards().filter(c => c[s.target] && c[s.native]); }
-  function pron(c, lang) { return (c.pron && c.pron[lang]) || ''; }
+  function rawPron(c, lang) { return (c.pron && c.pron[lang]) || ''; }
+  /* 발음 표기: 로마자(병음·로마자) + 뜻 언어가 한국어면 한글 발음(GAS 원본) 추가 */
+  function pron(c, lang) {
+    if (lang === L().native) return '';   /* 모국어(뜻 언어)는 발음 표기 생략 */
+    const parts = [rawPron(c, lang)];
+    if (L().native === 'ko' && lang !== 'ko' && c.kpron && c.kpron[lang]) parts.push('[' + c.kpron[lang] + ']');
+    return parts.filter(Boolean).join('  ');
+  }
   function say(c, lang) {
     TTS.speak(c[lang], lang, { rate: L().rate, proxy: L().proxy })
       .catch(e => toast(t('ttsFail', { lang: ln(lang), m: (e && e.message) || e }), 'err'));
@@ -482,7 +489,7 @@
   const CSV_COLS = ['cat', 'ko', 'vi', 'en', 'zh', 'zh_pron', 'ja', 'ja_pron'];
   const csvCell = v => /[",\n]/.test(v) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
   function exportCsv() {
-    const rows = allCards().map(c => [c.cat, c.ko, c.vi, c.en, c.zh, pron(c, 'zh'), c.ja, pron(c, 'ja')].map(x => csvCell(x || '')).join(','));
+    const rows = allCards().map(c => [c.cat, c.ko, c.vi, c.en, c.zh, rawPron(c, 'zh'), c.ja, rawPron(c, 'ja')].map(x => csvCell(x || '')).join(','));
     const csv = CSV_COLS.join(',') + '\n' + rows.join('\n');
     try {
       const a = document.createElement('a');

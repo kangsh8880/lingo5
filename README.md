@@ -13,7 +13,7 @@
 ```
 index.html
 css/style.css
-js/data.js    기본 문장 60개 (6개 분류)
+js/data.js    문장 199개 (기본 60 + 일일어학학습 메일 고유 139, 11개 분류)
 js/store.js   브라우저 저장
 js/srs.js     간격반복 엔진
 js/tts.js     음성 재생 (괄호 제거, 베트남어 환경별 분기, 이중 재생 방지)
