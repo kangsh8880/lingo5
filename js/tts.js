@@ -5,16 +5,27 @@
  *   · GAS 프록시(일일어학학습, 공식 서버 경유) → [PC] Google Tiếng Việt 기기 음성 → Google 번역 음성(tw-ob) → Google 번역 음성(gtx) → 기기 베트남어 음성
  *   · PC Chrome에는 Google 베트남어 기기 음성이 없어 Google 번역 음성을 직접 호출함.
  *     출처(Referer) 헤더가 붙으면 차단되는 경우가 있어 index.html에 no-referrer 지정 + Audio에도 지정
+ * - 한국어/영어/중국어/일본어도 기기에 해당 언어 음성이 없거나 재생 실패 시
+ *   GAS 프록시 → Google 번역 음성 순으로 자동 전환 (예: 갤럭시 탭에 중국어·일본어 음성 미설치)
  * - 이중 재생 방지: _currentViAudio 로 이전 Audio 정지, body 클릭 리스너 사용 안 함
  */
 const TTS = (() => {
   const LANG_CODE = { ko: 'ko-KR', vi: 'vi-VN', en: 'en-US', zh: 'zh-CN', ja: 'ja-JP' };
+  const GT = { ko: 'ko', vi: 'vi', en: 'en', zh: 'zh-CN', ja: 'ja' };   // Google 번역 음성 언어 코드
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const hasSynth = 'speechSynthesis' in window;
   const t = (k, v) => I18N.t(k, v);
   let voices = [];
   window._currentViAudio = null;
 
+  /* 안드로이드 Chrome은 음성 목록이 늦게 채워짐 → 최대 1초 대기 */
+  function waitVoices() {
+    return new Promise(res => {
+      if (!hasSynth) return res();
+      let n = 0; const iv = setInterval(() => { loadVoices(); if (voices.length || ++n > 10) { clearInterval(iv); res(); } }, 100);
+    });
+  }
+  function hasVoice(lang) { return voicesFor(lang).length > 0; }
   function loadVoices() { try { voices = window.speechSynthesis.getVoices() || []; } catch (e) { voices = []; } }
   if (hasSynth) { loadVoices(); try { window.speechSynthesis.onvoiceschanged = loadVoices; } catch (e) {} }
 
@@ -40,7 +51,7 @@ const TTS = (() => {
     return new Promise((resolve, reject) => {
       if (!hasSynth) return reject(new Error(t('eNoSynth')));
       const v = voice || pickVoice(lang);
-      if (!v && lang === 'vi') return reject(new Error(t('eNoVoice', { lang: t('lang_vi') })));
+      if (!v) return reject(new Error(t('eNoVoice', { lang: t('lang_' + lang) })));
       const u = new SpeechSynthesisUtterance(text);
       u.lang = LANG_CODE[lang];
       if (v) u.voice = v;
@@ -68,8 +79,8 @@ const TTS = (() => {
     });
   }
 
-  async function viViaProxy(text, proxy) {
-    const url = proxy + (proxy.includes('?') ? '&' : '?') + 'text=' + encodeURIComponent(text) + '&lang=vi';
+  async function viaProxy(text, proxy, lang) {
+    const url = proxy + (proxy.includes('?') ? '&' : '?') + 'text=' + encodeURIComponent(text) + '&lang=' + GT[lang];
     const r = await fetch(url);
     if (!r.ok) throw new Error('GAS proxy HTTP ' + r.status);
     const body = (await r.text()).trim();
@@ -81,8 +92,8 @@ const TTS = (() => {
     return playAudio(b64, t('rProxy'));
   }
 
-  function viDirect(text, client) {
-    const url = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=' + client +
+  function viaDirect(text, client, lang) {
+    const url = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=' + GT[lang] + '&client=' + client +
       '&total=1&idx=0&textlen=' + text.length + '&q=' + encodeURIComponent(text);
     return playAudio(url, t('rDirect') + '[' + client + ']');
   }
@@ -101,15 +112,23 @@ const TTS = (() => {
     if (!cleaned) return;
     stop();
     const rate = Number(opts.rate) || 1;
-    if (lang !== 'vi') return speakWeb(cleaned, lang, rate);
-
+    if (!voices.length) await waitVoices();
     const chain = [];
-    const gv = googleVoice('vi');
-    if (opts.proxy) chain.push(() => viViaProxy(cleaned, opts.proxy));
-    if (!isMobile && gv) chain.push(() => speakWeb(cleaned, 'vi', rate, gv));
-    chain.push(() => viDirect(cleaned, 'tw-ob'));
-    chain.push(() => viDirect(cleaned, 'gtx'));
-    chain.push(() => speakWeb(cleaned, 'vi', rate));
+    if (lang === 'vi') {
+      const gv = googleVoice('vi');
+      if (opts.proxy) chain.push(() => viaProxy(cleaned, opts.proxy, 'vi'));
+      if (!isMobile && gv) chain.push(() => speakWeb(cleaned, 'vi', rate, gv));
+      chain.push(() => viaDirect(cleaned, 'tw-ob', 'vi'));
+      chain.push(() => viaDirect(cleaned, 'gtx', 'vi'));
+      chain.push(() => speakWeb(cleaned, 'vi', rate));
+    } else {
+      const has = voicesFor(lang).length > 0;
+      if (has) chain.push(() => speakWeb(cleaned, lang, rate));          // 기기 음성 우선
+      if (opts.proxy) chain.push(() => viaProxy(cleaned, opts.proxy, lang));
+      chain.push(() => viaDirect(cleaned, 'tw-ob', lang));
+      chain.push(() => viaDirect(cleaned, 'gtx', lang));
+      if (!has) chain.push(() => speakWeb(cleaned, lang, rate));
+    }
 
     const errs = [];
     for (const f of chain) {
@@ -120,8 +139,8 @@ const TTS = (() => {
         errs.push(m);
       }
     }
-    throw new Error(t('eAll', { n: errs.length, m: errs.join(' / ') }));
+    throw new Error(lang === 'vi' ? t('eAll', { n: errs.length, m: errs.join(' / ') }) : errs.length + ' routes failed — ' + errs.join(' / '));
   }
 
-  return { speak, stop, clean, isMobile, pickVoice, viRoute, LANG_CODE };
+  return { speak, stop, clean, isMobile, pickVoice, viRoute, hasVoice, LANG_CODE };
 })();

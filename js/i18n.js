@@ -91,6 +91,8 @@ const I18N = (() => {
     refresh: ['지금 새로 받기', 'Tải lại ngay', 'Refresh now', '立即刷新', '今すぐ更新'],
     refreshed: ['문장 {n}개를 새로 받았습니다', 'Đã tải {n} câu mới', 'Fetched {n} phrases', '已获取 {n} 个句子', '{n}件のフレーズを取得しました'],
     refreshFail: ['문장 데이터 받기 실패: {m}', 'Tải dữ liệu câu thất bại: {m}', 'Failed to fetch phrases: {m}', '获取句子数据失败：{m}', 'フレーズ取得失敗：{m}'],
+    devVoices: ['기기 음성 보유', 'Giọng có sẵn trên máy', 'Device voices', '本机语音', '端末の音声'],
+    noVoiceNote: ['✗ 표시 언어는 Google 음성(GAS 경유)으로 자동 재생됩니다', 'Ngôn ngữ có ✗ sẽ tự động phát bằng giọng Google (qua GAS)', 'Languages marked ✗ play automatically with Google voice (via GAS)', '标 ✗ 的语言会自动使用 Google 语音（经 GAS）播放', '✗の言語はGoogle音声（GAS経由）で自動再生されます'],
     due: ['복습', 'Ôn tập', 'Review', '复习', '復習'],
     new: ['신규', 'Mới', 'New', '新', '新規'],
     again: ['다시', 'Lại', 'Again', '重来', 'もう一度'],

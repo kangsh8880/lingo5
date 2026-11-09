@@ -818,7 +818,9 @@
         <input type="url" id="sProxy" placeholder="${esc(DEFAULT_PROXY)}" value="${esc(s.proxy)}">
         <p class="note">${t('proxyDefault')}</p>
         <p class="note">${t('device')}: <b>${TTS.isMobile ? t('mobile') : 'PC'}</b> · ${t('viVoice')}: ${viVoice ? esc(viVoice.name) : `<span class="red-t">${t('none')}</span>`}<br>
-        ${t('viOrder')}: <b class="blue-t">${TTS.viRoute(proxyUrl()).map(esc).join(' → ')}</b></p>
+        ${t('viOrder')}: <b class="blue-t">${TTS.viRoute(proxyUrl()).map(esc).join(' → ')}</b><br>
+        ${t('devVoices')}: ${I18N.ORDER.map(k => `${esc(ln(k))} ${TTS.hasVoice(k) ? '<b class="blue-t">✓</b>' : '<b class="red-t">✗</b>'}`).join(' · ')}<br>
+        ${t('noVoiceNote')}</p>
         <div class="row gap wrap">${I18N.ORDER.map(k => `<button class="btn" data-test="${k}" type="button">🔊 ${t('test', { lang: esc(ln(k)) })}</button>`).join('')}</div>
       </div>
       <div class="panel">
