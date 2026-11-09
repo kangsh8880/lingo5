@@ -1,0 +1,39 @@
+/* 로컬 저장소 (브라우저별 저장, 실패 시 메모리로 동작) */
+const Store = (() => {
+  const KEY = 'lingo5_v1';
+  const defSettings = () => ({
+    target: 'vi',        // 학습 언어
+    native: 'ko',        // 뜻 언어
+    front: 'target',     // 카드 앞면: target | native
+    newPerDay: 10,       // 하루 신규 카드 수
+    rate: 0.9,           // 음성 속도
+    proxy: '',           // GAS TTS 프록시 URL (선택)
+    showPron: true,      // 발음 표기
+    autoplay: true       // 카드 표시 시 자동 듣기
+  });
+  const def = () => ({ settings: defSettings(), progress: {}, log: {}, stars: {}, custom: [] });
+  let mem = def();
+  let persistent = true;
+
+  function load() {
+    try {
+      const s = localStorage.getItem(KEY);
+      if (s) apply(JSON.parse(s));
+    } catch (e) { persistent = false; }
+    return mem;
+  }
+  function apply(o) {
+    const d = def();
+    mem.settings = Object.assign(d.settings, (o && o.settings) || {});
+    mem.progress = (o && o.progress) || {};
+    mem.log = (o && o.log) || {};
+    mem.stars = (o && o.stars) || {};
+    mem.custom = Array.isArray(o && o.custom) ? o.custom : [];
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(mem)); persistent = true; }
+    catch (e) { persistent = false; }
+  }
+  function reset() { apply(def()); save(); }
+  return { load, save, reset, apply, get: () => mem, isPersistent: () => persistent };
+})();

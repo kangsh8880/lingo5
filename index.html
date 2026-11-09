@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5개국어 학습카드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Sans+SC:wght@400;500&family=Noto+Sans+JP:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">5</span>개국어 학습카드</div>
+  <div class="lang-switch" id="langSwitch"></div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <a href="#study" data-view="study"><i>🃏</i>카드학습</a>
+  <a href="#quiz" data-view="quiz"><i>✏️</i>퀴즈</a>
+  <a href="#words" data-view="words"><i>📖</i>단어장</a>
+  <a href="#stats" data-view="stats"><i>📊</i>학습현황</a>
+  <a href="#setup" data-view="setup"><i>⚙️</i>설정</a>
+</nav>
+
+<main>
+  <section id="view-study" class="view"></section>
+  <section id="view-quiz" class="view"></section>
+  <section id="view-words" class="view"></section>
+  <section id="view-stats" class="view"></section>
+  <section id="view-setup" class="view"></section>
+</main>
+
+<footer class="foot">
+  ※ TTS: Text-to-Speech, 음성 합성 · GAS: Google Apps Script · CSV: Comma-Separated Values, 쉼표 구분 데이터 · 간격반복: 기억 정도에 따라 복습 주기를 1·2·4·7·15·30일로 늘리는 학습법
+</footer>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/srs.js"></script>
+<script src="js/tts.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
