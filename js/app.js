@@ -8,7 +8,7 @@
   const L = () => st.settings;
   const t = (k, v) => I18N.t(k, v);
   const ln = k => t('lang_' + k);
-  const catName = c => t('cat_' + c);
+  const catName = c => { const k = 'cat_' + c, v = t(k); return v === k ? (CATS[c] || c) : v; };
   const R = {};
 
   /* ---------- 최초 실행: 화면 언어 = 브라우저 언어, 뜻 언어 = 화면 언어 ---------- */
@@ -20,6 +20,47 @@
     }
     I18N.set(s.ui);
   })();
+
+  /* ---------- 문장 원본: Google 시트 (GAS action=phrases) → 캐시 → 앱 내장 data.js ---------- */
+  const PKEY = 'lingo5_phrases_v1';
+  const BUILTIN = PHRASES.slice();
+  const CAT_KEY = {}; Object.keys(CATS).forEach(k => { CAT_KEY[CATS[k]] = k; });
+  const SRC = { kind: 'builtin', n: BUILTIN.length, at: '' };
+  function rowToCard(r) {
+    let cat = CAT_KEY[r.cat] || r.cat || 'daily';
+    if (!CATS[cat]) CATS[cat] = r.cat;
+    return { id: r.id, cat, src: 'sheet', ko: r.ko, vi: r.vi, en: r.en, zh: r.zh, ja: r.ja,
+      pron: { zh: r.zhP, ja: r.jaP, ko: r.koP }, kpron: { vi: r.viK, zh: r.zhK, ja: r.jaK } };
+  }
+  function applyRows(rows, at) {
+    const cards = rows.filter(r => r.id && r.ko).map(rowToCard);
+    if (!cards.length) return false;
+    PHRASES.splice(0, PHRASES.length, ...cards);
+    SRC.kind = 'sheet'; SRC.n = cards.length; SRC.at = at || '';
+    return true;
+  }
+  (function loadCachedPhrases() {
+    try { const c = JSON.parse(localStorage.getItem(PKEY) || 'null'); if (c && c.rows) applyRows(c.rows, c.at); } catch (e) {}
+  })();
+  async function fetchPhrases(manual) {
+    try {
+      const url = proxyUrl() + (proxyUrl().includes('?') ? '&' : '?') + 'action=phrases' + (manual ? '&nocache=1' : '');
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('GAS HTTP ' + r.status);
+      const d = JSON.parse(await r.text());
+      if (!d.ok) throw new Error(d.error || 'GAS error');
+      const sig = JSON.stringify(d.rows);
+      let old = ''; try { const c = JSON.parse(localStorage.getItem(PKEY) || 'null'); old = c ? JSON.stringify(c.rows) : ''; } catch (e) {}
+      const changed = sig !== old || SRC.kind !== 'sheet';
+      if (applyRows(d.rows, d.at)) {
+        try { localStorage.setItem(PKEY, JSON.stringify({ at: d.at, rows: d.rows })); } catch (e) {}
+        if (changed || manual) { S = null; Q = null; route(); }
+        if (manual) toast(t('refreshed', { n: SRC.n }));
+      }
+    } catch (e) {
+      if (manual) toast(t('refreshFail', { m: (e && e.message) || e }), 'err');
+    }
+  }
 
   /* ---------- 공통 ---------- */
   function toast(msg, type) {
@@ -781,6 +822,11 @@
         <div class="row gap wrap">${I18N.ORDER.map(k => `<button class="btn" data-test="${k}" type="button">🔊 ${t('test', { lang: esc(ln(k)) })}</button>`).join('')}</div>
       </div>
       <div class="panel">
+        <h3>${t('dataSrc')}</h3>
+        <p>${SRC.kind === 'sheet' ? `<b class="blue-t">${t('srcSheet', { n: SRC.n, t: esc(SRC.at ? new Date(SRC.at).toLocaleString() : '-') })}</b>` : `<b class="red-t">${t('srcBuiltin', { n: SRC.n })}</b>`}</p>
+        <button class="btn" id="phrRefresh" type="button">🔄 ${t('refresh')}</button>
+      </div>
+      <div class="panel">
         <h3>${t('install')}</h3>
         <p class="note">${t('installNote')}</p>
         ${PWA.standalone() ? `<p class="blue-t"><b>${t('installed')}</b></p>`
@@ -797,6 +843,7 @@
     $('#sUi').value = s.ui; $('#sTarget').value = s.target; $('#sNative').value = s.native; $('#sFront').value = s.front; $('#sNew').value = String(s.newPerDay);
     $('#sPron').checked = s.showPron; $('#sAuto').checked = s.autoplay;
     $('#sUi').onchange = e => setUi(e.target.value);
+    $('#phrRefresh').onclick = () => fetchPhrases(true).then(() => { if ($('#view-setup').classList.contains('active')) R.setup(); });
     if ($('#pwaBtn')) $('#pwaBtn').onclick = () => PWA.prompt().then(() => R.setup());
     $('#sTarget').onchange = e => setTarget(e.target.value);
     $('#sNative').onchange = e => setNative(e.target.value);
@@ -842,4 +889,5 @@
   /* ---------- 시작 ---------- */
   drawChrome();
   route();
+  fetchPhrases(false);
 })();

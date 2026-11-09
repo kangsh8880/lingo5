@@ -16,6 +16,12 @@
 - PWA: 홈 화면 설치·오프라인 카드학습 (manifest.webmanifest, sw.js, icons/)
 - 번역·베트남어 음성: 일일어학학습 GAS 웹앱 우선 사용 (GAS Code.gs에 action=translate 추가 필요)
 
+## 문장 원본 (Google 시트, 2026-11-09)
+- 원본: Google 시트 '5개국어 학습 문장 (원본)' — GAS `setupPhraseSheet()`가 data/phrases_master.csv로 최초 1회 생성
+- 메일(GAS)과 앱 모두 시트(사용=Y)를 읽음 → 시트만 고치면 다음 메일·앱 실행 시 반영
+- 앱: GAS `?action=phrases` → 브라우저 캐시 → js/data.js(내장) 순으로 사용
+- 개인 '내 문장'은 각 브라우저에만 저장 (시트와 별개)
+
 ## 파일 구조
 ```
 index.html
@@ -28,6 +34,7 @@ js/translate.js 번역·음성인식
 js/compare.js 따라 말하기·받아쓰기 채점
 js/app.js     화면 로직
 sw.js         오프라인 캐시
+data/phrases_master.csv  원본 시트 최초 생성용 데이터
 ```
 
 ## CSV 형식
