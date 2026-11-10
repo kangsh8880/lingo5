@@ -3,68 +3,82 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- Google 번역 음성(베트남어)이 출처 헤더로 차단되지 않도록 -->
 <meta name="referrer" content="no-referrer">
-<title>입말 Ipmal</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Sans+SC:wght@400;500&family=Noto+Sans+JP:wght@400;500&display=swap">
-<link rel="stylesheet" href="css/style.css">
-<link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#D6E4F0">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
-<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="입말">
+<title>입말 Ipmal — 새 주소로 이사했어요</title>
+<link rel="icon" type="image/png" href="icons/favicon-32.png">
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: 'Noto Sans KR', system-ui, sans-serif; color: #222;
+    background: radial-gradient(900px 500px at 0% 0%, #EAF4FB 0%, transparent 55%), radial-gradient(800px 500px at 100% 100%, #EEF7F0 0%, transparent 55%), #F7F9FC; }
+  .box { width: min(92vw, 440px); background: rgba(255,255,255,.88); border: 1px solid #D5DAE1; border-radius: 24px; padding: 28px 24px; text-align: center; box-shadow: 0 16px 40px rgba(30,60,110,.12); }
+  h1 { font-size: 22px; margin: 10px 0 6px; }
+  p { margin: 6px 0; font-size: 14.5px; line-height: 1.55; }
+  .sub { color: #6B7280; font-size: 13px; }
+  .url { display: inline-block; margin: 10px 0 14px; padding: 6px 14px; border-radius: 99px; background: #D6E4F0; color: #1F5FA8; font-weight: 700; }
+  .btn { display: block; width: 100%; padding: 14px; border-radius: 14px; border: 1px solid #9DB8D6; background: linear-gradient(180deg, #EAF4FB, #D6E4F0); color: #1F5FA8; font-size: 16px; font-weight: 700; cursor: pointer; text-decoration: none; }
+  .note { margin-top: 14px; font-size: 12px; color: #6B7280; }
+  .bar { height: 6px; border-radius: 99px; background: #EDF0F4; overflow: hidden; margin: 14px 0 6px; }
+  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #BCD4EC, #B9A9DC, #97CDA8); animation: go 2.2s linear forwards; }
+  @keyframes go { to { width: 100%; } }
+  svg { animation: float 2.4s ease-in-out infinite; }
+  @keyframes float { 50% { transform: translateY(-5px); } }
+</style>
 </head>
 <body>
-<header class="top">
-  <div class="top-row">
-    <div class="brand"><img class="logo" src="icons/icon.svg" alt=""><span id="appTitle">입말</span></div>
-    <label class="ui-lang"><span class="globe">🌐</span><span id="uiLabel">화면 언어</span>
-      <select id="uiLang" aria-label="Display language"></select></label>
-  </div>
-  <div class="sel-row">
-    <span class="sel-label tgt" id="tgtLabel">학습 언어</span>
-    <div class="chip-scroll" id="tgtChips"></div>
-  </div>
-  <div class="sel-row">
-    <span class="sel-label nat" id="natLabel">뜻 언어</span>
-    <div class="chip-scroll" id="natChips"></div>
-  </div>
-</header>
+<div class="box">
+  <svg viewBox="0 0 120 112" width="110" height="103" aria-hidden="true">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2FBF5"/><stop offset="1" stop-color="#CDEBD7"/></linearGradient></defs>
+    <g fill="none" stroke-linecap="round" stroke-width="4"><path d="M76,24 A10,10 0 0 1 76,40" stroke="#9DB8D6"/><path d="M83,17 A17,17 0 0 1 83,47" stroke="#B9A9DC"/><path d="M90,10 A24,24 0 0 1 90,54" stroke="#97CDA8"/></g>
+    <circle cx="54" cy="66" r="40" fill="url(#g)" stroke="#97CDA8" stroke-width="3"/>
+    <ellipse cx="32" cy="75" rx="6" ry="3.6" fill="#F7B8C2" opacity=".85"/><ellipse cx="76" cy="75" rx="6" ry="3.6" fill="#F7B8C2" opacity=".85"/>
+    <path d="M36,62 Q41,55 46,62" fill="none" stroke="#3E4656" stroke-width="3" stroke-linecap="round"/><path d="M62,62 Q67,55 72,62" fill="none" stroke="#3E4656" stroke-width="3" stroke-linecap="round"/>
+    <path d="M44,74 Q54,69.5 64,74 Q61,86 54,86 Q47,86 44,74Z" fill="#E88A98" stroke="#D97786" stroke-width="1.6"/>
+  </svg>
+  <h1 id="h">입말이 새 주소로 이사했어요</h1>
+  <p id="m">학습 기록을 그대로 가지고 새 주소로 이동합니다.</p>
+  <span class="url">ipmal-app.github.io</span>
+  <div class="bar"><i></i></div>
+  <a class="btn" id="go" href="https://ipmal-app.github.io/">지금 이동하기</a>
+  <p class="note" id="n">홈 화면에 설치해 쓰셨다면, 새 주소에서 다시 '홈 화면에 설치'를 해주세요.</p>
+  <p class="sub">Ipmal has moved · Ipmal đã chuyển địa chỉ · Ipmal 已搬家 · Ipmalは引っ越しました</p>
+</div>
+<script>
+(function () {
+  var NEW = 'https://ipmal-app.github.io/';
+  var T = {
+    vi: ['Ipmal đã chuyển sang địa chỉ mới', 'Đang chuyển sang địa chỉ mới cùng dữ liệu học của bạn.', 'Chuyển ngay', 'Nếu đã cài trên màn hình chính, hãy cài lại từ địa chỉ mới.'],
+    en: ['Ipmal has moved to a new address', 'Moving you to the new address with your study records.', 'Go now', 'If you installed it on your home screen, please install it again from the new address.'],
+    zh: ['Ipmal 已搬到新地址', '正在带着您的学习记录前往新地址。', '立即前往', '如已添加到主屏幕，请在新地址重新添加。'],
+    ja: ['Ipmalは新しいアドレスに引っ越しました', '学習記録をそのまま持って新しいアドレスへ移動します。', '今すぐ移動', 'ホーム画面に追加していた場合は、新しいアドレスで再度追加してください。']
+  };
+  var lang = 'ko';
+  try {
+    var st = JSON.parse(localStorage.getItem('lingo5_v1') || 'null');
+    lang = (st && st.settings && st.settings.ui) || (navigator.language || 'ko').slice(0, 2);
+  } catch (e) {}
+  if (T[lang]) { var x = T[lang]; h.textContent = x[0]; m.textContent = x[1]; go.textContent = x[2]; n.textContent = x[3]; }
 
-<nav class="tabs" id="tabs">
-  <a href="#study" data-view="study"><i>🃏</i><span></span></a>
-  <a href="#quiz" data-view="quiz"><i>✏️</i><span></span></a>
-  <a href="#speak" data-view="speak"><i>🎤</i><span></span></a>
-  <a href="#words" data-view="words"><i>📖</i><span></span></a>
-  <a href="#stats" data-view="stats"><i>📊</i><span></span></a>
-  <a href="#setup" data-view="setup"><i>⚙️</i><span></span></a>
-</nav>
+  /* 학습 기록을 주소 뒤(#import=…)에 담아 전달 — 서버로 전송되지 않는 부분 */
+  var target = NEW;
+  try {
+    var raw = localStorage.getItem('lingo5_v1');
+    if (raw) {
+      var bytes = new TextEncoder().encode(raw), bin = '';
+      for (var i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+      target = NEW + '#import=' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+  } catch (e) {}
+  go.href = target;
 
-<main>
-  <section id="view-study" class="view"></section>
-  <section id="view-quiz" class="view"></section>
-  <section id="view-speak" class="view"></section>
-  <section id="view-words" class="view"></section>
-  <section id="view-stats" class="view"></section>
-  <section id="view-setup" class="view"></section>
-</main>
+  /* 옛 주소의 오프라인 저장본 정리 (같은 주소를 쓰는 다른 앱은 건드리지 않음) */
+  try {
+    if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(function (rs) {
+      rs.forEach(function (r) { if (r.scope.indexOf('/lingo5/') > -1) r.unregister(); });
+    });
+    if (window.caches) caches.keys().then(function (ks) { ks.forEach(function (k) { if (k.indexOf('lingo5') === 0) caches.delete(k); }); });
+  } catch (e) {}
 
-<footer class="foot" id="foot"></footer>
-
-<div id="toast" class="toast" role="status" aria-live="polite"></div>
-
-<script src="js/i18n.js"></script>
-<script src="js/data.js"></script>
-<script src="js/store.js"></script>
-<script src="js/srs.js"></script>
-<script src="js/tts.js"></script>
-<script src="js/translate.js"></script>
-<script src="js/compare.js"></script>
-<script src="js/fx.js"></script>
-<script src="js/mascot.js"></script>
-<script src="js/app.js"></script>
+  setTimeout(function () { location.replace(target); }, 2300);
+})();
+</script>
 </body>
 </html>
