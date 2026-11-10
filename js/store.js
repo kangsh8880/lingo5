@@ -14,7 +14,9 @@ const Store = (() => {
     proxy: '',           // GAS 프록시 URL (비우면 DEFAULT_PROXY)
     showPron: true,      // 발음 표기
     autoplay: true,      // 카드 표시 시 자동 듣기
-    theme: 'light'       // 화면 테마: light | dark | auto
+    theme: 'light',      // 화면 테마: light | dark | auto
+    dailyGoal: 20,       // 하루 목표 카드 수
+    haptic: true         // 진동 피드백
   });
   const def = () => ({ settings: defSettings(), progress: {}, log: {}, stars: {}, custom: [], talk: [] });
   let mem = def();

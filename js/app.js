@@ -119,8 +119,9 @@
   }
   function shadowBox(res) {
     const pass = res.pct >= 80;
-    if (res.pct >= 90) setTimeout(() => FX.confetti(0.6), 50);
+    FX.haptic(pass ? 'good' : 'bad');
     return `<div class="shadow-res ${pass ? 'ok' : 'ng'}">
+      ${Mascot.html(pass ? 'happy' : 'oops', pass ? t('mShadowGood') : t('mShadowTry'), 40)}
       <b>${t('scoreLbl', { n: res.pct.toFixed(1) })}</b> · ${pass ? t('passShadow') : t('failShadow')}
       ${diffHtml(res)}<div class="note">${t('heardTxt', { a: esc(res.said) })}</div></div>`;
   }
@@ -131,6 +132,7 @@
   /* ---------- 테마 ---------- */
   function applyTheme() { document.documentElement.dataset.theme = L().theme || 'light'; }
   applyTheme();
+  FX.setHaptic(L().haptic !== false);
 
   /* ---------- 상단: 화면 언어 / 학습 언어 / 뜻 언어 ---------- */
   function drawChrome() {
@@ -185,7 +187,9 @@
     TTS.stop(); Translator.stopListen();
     R[v]();
   }
-  window.addEventListener('hashchange', route);
+  window.addEventListener('hashchange', () => {
+    if (document.startViewTransition && !FX.reduced()) document.startViewTransition(route); else route();
+  });
 
   /* =====================================================
    * 1. 카드학습
@@ -193,7 +197,7 @@
   let S = null;
   function newSession(extra, onlyCards) {
     const q = onlyCards ? { due: SRS.shuffle(onlyCards.slice()), fresh: [] } : SRS.buildQueue(usable(), st, extra);
-    S = { weak: !!onlyCards, anim: true,
+    S = { weak: !!onlyCards, anim: true, mood: 'idle', msg: t('mHello'),
       queue: q.due.map(c => ({ c, kind: 'due' })).concat(q.fresh.map(c => ({ c, kind: 'new' }))),
       idx: 0, flipped: false, done: 0, again: 0, dueN: q.due.length, newN: q.fresh.length
     };
@@ -206,11 +210,11 @@
     if (S.idx >= S.queue.length) {
       const msg = S.queue.length === 0 ? t('noneToday') : t('doneMsg', { a: `<b class="blue-t">${S.done}</b>`, b: `<b class="red-t">${S.again}</b>` });
       el.innerHTML = `<div class="panel center">
-        <div class="big-emoji">🎉</div><h2>${t('doneTitle')}</h2><p>${msg}</p>
+        <div class="done-mascot">${Mascot.html(S.done > 0 ? 'party' : 'idle', '', 120)}</div><h2>${t('doneTitle')}</h2><p>${msg}</p>
         <div class="row center gap wrap"><button class="btn blue" id="more" type="button">${t('more10')}</button>
         <a class="btn" href="#quiz">${t('goQuiz')}</a><a class="btn" href="#stats">${t('tabStats')}</a></div></div>`;
       $('#more').onclick = () => { newSession(10); if (!S.queue.length) toast(t('noMoreNew')); drawStudy(true); };
-      if (S.done > 0 && !S.celebrated) { S.celebrated = true; FX.confetti(); }
+      if (S.done > 0 && !S.celebrated) { S.celebrated = true; FX.confetti(0.6); FX.haptic('goal'); }
       return;
     }
     const item = S.queue[S.idx], c = item.c;
@@ -219,7 +223,12 @@
     const remain = S.queue.length - S.idx;
     const pct = Math.round(S.idx / S.queue.length * 100);
     const kindTxt = item.kind === 'new' ? t('new') : item.kind === 'again' ? t('again') : t('due');
+    const goal = Number(s.dailyGoal) || 20, today = (SRS.todayLog(st).studied || 0);
     el.innerHTML = `
+      <div class="study-top">
+        <div class="goal">${FX.ring(today, goal)}<div class="goal-txt"><b>${t('goalLbl')}</b><span><em>${today}</em> / ${goal}</span></div></div>
+        <div id="mascotBox">${Mascot.html(S.mood, S.msg, 52)}</div>
+      </div>
       <div class="meta">
         <span class="pill blue">${t('due')} ${S.dueN}</span><span class="pill green">${t('new')} ${S.newN}</span>
         <span class="pill">${t('left')} ${remain}</span><span class="cat">${esc(catName(c.cat))}</span>
@@ -248,10 +257,21 @@
         <button class="btn round mic-s" id="shadow" type="button">${t('speakNow')}</button></div>
       <div id="shadowRes"></div>
       <div id="gradeArea">${gradeHtml(c)}</div>
-      <p class="keys">${t('keys', { g0: t('g0'), g1: t('g1'), g2: t('g2') })}</p>`;
+      <p class="keys"><span class="swipe-hint">${t('swipeHint')}</span><br>${t('keys', { g0: t('g0'), g1: t('g1'), g2: t('g2') })}</p>`;
     pre(c, s.target);
     for (let k = 1; k <= 2; k++) { const nx = S.queue[S.idx + k]; if (nx) pre(nx.c, s.target); }
-    $('#card').onclick = flip;
+    const cardEl = $('#card');
+    cardEl.onclick = () => { if (!cardEl.dataset.dragged) flip(); };
+    cardEl.dataset.good = t('g2'); cardEl.dataset.bad = t('g0');
+    FX.drag(cardEl, {
+      enabled: () => S.flipped && !S.busy,
+      onMove: dx => { cardEl.style.transition = 'none'; cardEl.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`; cardEl.dataset.dir = dx > 50 ? 'good' : dx < -50 ? 'bad' : ''; },
+      onEnd: dx => {
+        if (dx > 90) return grade(2, dx);
+        if (dx < -90) return grade(0, dx);
+        cardEl.style.transition = ''; cardEl.style.transform = ''; cardEl.dataset.dir = '';
+      }
+    });
     $('#play').onclick = () => say(c, s.target);
     $('#shadow').onclick = e => shadowListen(c, e.currentTarget, res => {
       logShadow(res.pct); if (res.pct < 80) { const p = SRS.getP(st, c); if (p) p.lapses++; }
@@ -278,19 +298,34 @@
     S.flipped = true;
     $('#card').classList.add('flipped');
     $('#gradeArea').innerHTML = gradeHtml(cur()); bindGrade();
+    setMood('think', t('mThink'));
     if (L().autoplay && L().front === 'native') say(cur(), L().target);
   }
-  function grade(g) {
+  function setMood(mood, msg) {
+    S.mood = mood; S.msg = msg;
+    const box = $('#mascotBox'); if (box) box.innerHTML = Mascot.html(mood, msg, 52);
+  }
+  function grade(g, swipeDx) {
     const c = cur(); if (!c || !S.flipped || S.busy) return;
     SRS.grade(st, c, g);
     if (g === 0) { S.queue.push({ c, kind: 'again' }); S.again++; }
     S.done++; save();
+    FX.haptic(g === 2 ? 'good' : g === 0 ? 'bad' : 'mid');
+    if (g === 2) setMood('happy', Mascot.pick([t('mGood1'), t('mGood2'), t('mGood3')]));
+    else if (g === 1) setMood('think', t('mMid'));
+    else setMood('oops', t('mBad'));
+    const log = SRS.todayLog(st), goal = Number(L().dailyGoal) || 20;
+    if (log.studied >= goal && !log.goalHit) { log.goalHit = true; save(); setMood('party', t('mGoal')); FX.confetti(0.8); FX.haptic('goal'); }
     S.busy = true;
     const card = $('#card');
     const done = () => { S.busy = false; S.idx++; S.flipped = false; S.anim = true; drawStudy(true); };
     if (FX.reduced() || !card) return done();
-    card.classList.add(g === 2 ? 'out-good' : g === 0 ? 'out-bad' : 'out-mid');
-    setTimeout(done, 260);
+    if (swipeDx) {
+      card.style.transition = 'transform .28s ease-in, opacity .28s';
+      card.style.transform = `translateX(${Math.sign(swipeDx) * 520}px) rotate(${Math.sign(swipeDx) * 18}deg)`;
+      card.style.opacity = '0';
+    } else card.classList.add(g === 2 ? 'out-good' : g === 0 ? 'out-bad' : 'out-mid');
+    setTimeout(done, 280);
   }
   document.addEventListener('keydown', e => {
     if (!$('#view-study').classList.contains('active')) return;
@@ -375,7 +410,8 @@
         if (answered) { if (k === q.ans) cls = 'right'; else if (k === q.pick) cls = 'wrong'; else cls = 'dim'; }
         return `<button class="opt ${cls} lang-${Q.optLang}" data-k="${k}" type="button" ${answered ? 'disabled' : ''}><b>${k + 1}</b> ${esc(o[Q.optLang])}</button>`;
       }).join('')}</div>
-      ${answered ? `<div class="feedback ${q.pick === q.ans ? 'ok' : 'ng'}">${q.pick === q.ans ? t('right') : t('wrongAdded')}
+      ${answered ? `<div class="feedback-row">${Mascot.html(q.pick === q.ans ? 'happy' : 'oops', q.pick === q.ans ? t('mQuizOk') : t('mQuizNg'), 46)}</div>
+         <div class="feedback ${q.pick === q.ans ? 'ok' : 'ng'}">${q.pick === q.ans ? t('right') : t('wrongAdded')}
          <div class="fb-detail"><b>${esc(c[s.target])}</b> ${pron(c, s.target) ? `<span class="pron">${esc(pron(c, s.target))}</span>` : ''} = ${esc(c[s.native])}</div></div>
          <button class="btn blue wide" id="qNext" type="button">${Q.i + 1 < Q.qs.length ? t('next') : t('seeResult')}</button>` : ''}`;
     pre(c, s.target); if (Q.qs[Q.i + 1]) pre(Q.qs[Q.i + 1].c, s.target);
@@ -389,7 +425,7 @@
     q.done = true; q.pick = ok ? q.ans : -1;
     const log = SRS.todayLog(st);
     log.quizN++;
-    if (ok) { Q.ok++; log.quizOK++; } else SRS.lapse(st, q.c);
+    if (ok) { Q.ok++; log.quizOK++; FX.haptic('good'); } else { SRS.lapse(st, q.c); FX.haptic('bad'); }
     if (Q.mode === 'shadow') logShadow(pct);
     save();
   }
@@ -446,7 +482,7 @@
     q.pick = k;
     const log = SRS.todayLog(st);
     log.quizN++;
-    if (k === q.ans) { Q.ok++; log.quizOK++; } else SRS.lapse(st, q.c);
+    if (k === q.ans) { Q.ok++; log.quizOK++; FX.haptic('good'); } else { SRS.lapse(st, q.c); FX.haptic('bad'); }
     save(); drawQuiz(false);
     if (L().autoplay && Q.mode !== 'meaning') say(q.c, L().target);
   }
@@ -454,8 +490,9 @@
     const el = $('#view-quiz'), s = L();
     const acc = Q.qs.length ? (Q.ok / Q.qs.length * 100).toFixed(1) : '0.0';
     const wrong = Q.qs.filter(q => q.pick !== q.ans);
-    if (+acc >= 80 && !Q.celebrated) { Q.celebrated = true; setTimeout(() => FX.confetti(+acc === 100 ? 1.6 : 1), 150); }
+    if (+acc === 100 && !Q.celebrated) { Q.celebrated = true; setTimeout(() => FX.confetti(1), 150); FX.haptic('goal'); }
     el.innerHTML = `<div class="panel center">
+      <div class="done-mascot">${Mascot.html(+acc >= 80 ? 'party' : +acc >= 50 ? 'happy' : 'think', '', 96)}</div>
       <h2>${t('qResult')}</h2>
       <div class="score"><b class="${+acc >= 80 ? 'blue-t' : 'red-t'}" data-count="${acc}" data-dec="1" data-suffix="%">${acc}%</b><span>${t('scoreTxt', { a: Q.ok, b: Q.qs.length })}</span></div>
       ${wrong.length ? `<table class="tbl"><thead><tr><th>${esc(ln(s.target))}</th><th>${esc(ln(s.native))}</th><th>🔊</th></tr></thead><tbody>
@@ -943,10 +980,12 @@
           <div><label class="lbl" for="sFront">${t('cardFront')}</label><select id="sFront"><option value="target">${t('frontTarget')}</option><option value="native">${t('frontNative')}</option></select></div>
           <div><label class="lbl" for="sTheme">${t('theme')}</label><select id="sTheme">
             <option value="light">☀️ ${t('themeLight')}</option><option value="dark">🌙 ${t('themeDark')}</option><option value="auto">🖥 ${t('themeAuto')}</option></select></div>
+          <div><label class="lbl" for="sGoal">${t('dailyGoal')}</label><select id="sGoal">${[10, 20, 30, 50, 100].map(n => `<option value="${n}">${t('nCards', { n })}</option>`).join('')}</select></div>
           <div><label class="lbl" for="sNew">${t('newPerDay')}</label><select id="sNew">${[5, 10, 15, 20, 30].map(n => `<option value="${n}">${t('nCards', { n })}</option>`).join('')}</select></div>
         </div>
         <label class="check"><input type="checkbox" id="sPron"> ${t('showPron')}</label>
         <label class="check"><input type="checkbox" id="sAuto"> ${t('autoplay')}</label>
+        <label class="check"><input type="checkbox" id="sHaptic"> ${t('hapticLbl')}</label>
       </div>
       <div class="panel">
         <h3>${t('voiceSet')}</h3>
@@ -983,6 +1022,10 @@
     $('#sUi').value = s.ui; $('#sTarget').value = s.target; $('#sNative').value = s.native; $('#sFront').value = s.front; $('#sNew').value = String(s.newPerDay);
     $('#sPron').checked = s.showPron; $('#sAuto').checked = s.autoplay;
     $('#sTheme').value = s.theme || 'light';
+    $('#sGoal').value = String(s.dailyGoal || 20);
+    $('#sGoal').onchange = e => { s.dailyGoal = +e.target.value; save(); };
+    $('#sHaptic').checked = s.haptic !== false;
+    $('#sHaptic').onchange = e => { s.haptic = e.target.checked; FX.setHaptic(s.haptic); save(); if (s.haptic) FX.haptic('good'); };
     $('#sTheme').onchange = e => { s.theme = e.target.value; save(); applyTheme(); };
     $('#sUi').onchange = e => setUi(e.target.value);
     $('#phrRefresh').onclick = () => fetchPhrases(true).then(() => { if ($('#view-setup').classList.contains('active')) R.setup(); });

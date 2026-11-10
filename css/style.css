@@ -469,3 +469,84 @@ svg.grow .br:nth-of-type(3n) { animation-delay: .08s; }
   :root[data-theme="auto"] .sel-label.tgt { color: #9EC3EE; }
   :root[data-theme="auto"] .chart .br { fill: #3D5578; } :root[data-theme="auto"] .chart .br.today { fill: #6E92C2; }
 }
+
+/* =====================================================================
+ * v3 (2026-11-10): 마스코트 '입말이' · 스와이프 · 스프링 · 목표 링 · 화면 전환
+ * ===================================================================== */
+:root { --spring: cubic-bezier(.34, 1.56, .64, 1); }
+@supports (transition-timing-function: linear(0, 1)) {
+  :root { --spring: linear(0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%, 0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1.004 83.8%, 1); }
+}
+/* 스프링 반응: 버튼·칩·선택지 */
+.btn, .chip, .opt, .ic, .seg button { transition: transform .45s var(--spring), box-shadow .2s, background .2s, border-color .2s; }
+.btn:active, .chip:active, .opt:active:not(:disabled), .ic:active { transform: scale(.93); transition-duration: .08s; }
+
+/* 상단: 목표 링 + 마스코트 */
+.study-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.goal { display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 6px 12px 6px 6px; box-shadow: var(--shadow); }
+.goal-txt { display: flex; flex-direction: column; line-height: 1.2; }
+.goal-txt b { font-size: 12px; color: var(--sub); font-weight: 500; }
+.goal-txt span { font-size: 15px; font-weight: 700; }
+.goal-txt em { font-style: normal; color: var(--blue); }
+.goal-ring .ring-bg { fill: none; stroke: var(--soft); stroke-width: 5; }
+.goal-ring .ring-fg { fill: none; stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset .8s var(--spring); }
+.goal-ring .ring-txt { font-size: 10px; font-weight: 700; fill: var(--text); }
+.goal-ring.full { animation: ringPop .7s var(--spring); }
+@keyframes ringPop { 0% { transform: scale(.8); } 100% { transform: none; } }
+
+/* 마스코트 */
+.mascot { display: flex; align-items: center; gap: 6px; }
+.mascot-svg { flex: 0 0 auto; overflow: visible; animation: mFloat 3.2s ease-in-out infinite; transform-origin: 50% 90%; }
+@keyframes mFloat { 50% { transform: translateY(-3px); } }
+.mascot .m-eyes { transform-box: fill-box; transform-origin: center; animation: mBlink 4.5s infinite; }
+@keyframes mBlink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+.m-happy .mascot-svg, .m-party .mascot-svg { animation: mJump .6s var(--spring), mFloat 3.2s ease-in-out .6s infinite; }
+@keyframes mJump { 0% { transform: scale(.7) translateY(6px); } 100% { transform: none; } }
+.m-oops .mascot-svg { animation: mWobble .5s ease, mFloat 3.2s ease-in-out .5s infinite; }
+@keyframes mWobble { 25% { transform: rotate(-8deg); } 50% { transform: rotate(6deg); } 75% { transform: rotate(-3deg); } }
+.m-think .mascot-svg { animation: mTilt 2.4s ease-in-out infinite; }
+@keyframes mTilt { 50% { transform: rotate(-6deg); } }
+.m-spark { animation: mSpark 1s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes mSpark { 50% { opacity: .4; transform: scale(.8); } }
+.m-dots circle { animation: mDots 1.4s ease-in-out infinite; }
+.m-dots circle:nth-child(2) { animation-delay: .25s; }
+@keyframes mDots { 50% { opacity: .3; } }
+.mbubble {
+  position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 7px 11px;
+  font-size: 13px; font-weight: 500; box-shadow: var(--shadow); max-width: 170px; line-height: 1.35;
+  animation: bubbleIn .45s var(--spring);
+}
+.mbubble::before { content: ''; position: absolute; left: -6px; top: 50%; width: 10px; height: 10px; background: var(--card); border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: translateY(-50%) rotate(45deg); }
+@keyframes bubbleIn { from { opacity: 0; transform: scale(.85) translateX(-6px); } }
+#mascotBox .mascot { flex-direction: row-reverse; }
+#mascotBox .mbubble::before { left: auto; right: -6px; border-left: none; border-bottom: none; border-right: 1px solid var(--line); border-top: 1px solid var(--line); }
+.done-mascot { display: flex; justify-content: center; margin: 4px 0 2px; }
+.feedback-row { margin: 12px 0 -4px; }
+.shadow-res .mascot { justify-content: center; margin-bottom: 6px; }
+
+/* 스와이프 카드 */
+.card3d { touch-action: pan-y; transition: transform .5s var(--spring); position: relative; }
+.card3d::before, .card3d::after {
+  position: absolute; top: 18px; z-index: 5; padding: 6px 14px; border-radius: 12px; font-weight: 700; font-size: 15px;
+  opacity: 0; transition: opacity .15s; pointer-events: none; border: 2px solid;
+}
+.card3d::before { content: attr(data-good) ' 😊'; right: 18px; color: #2F7A50; border-color: #97CDA8; background: var(--p-green); transform: rotate(8deg); }
+.card3d::after { content: '😵 ' attr(data-bad); left: 18px; color: var(--red); border-color: #E8A3AE; background: var(--p-pink); transform: rotate(-8deg); }
+.card3d[data-dir="good"]::before, .card3d[data-dir="bad"]::after { opacity: 1; }
+.swipe-hint { display: none; color: var(--blue); font-weight: 500; }
+.card3d.flipped ~ #gradeArea + .keys .swipe-hint { display: inline; }
+#view-study:has(.card3d.flipped) .swipe-hint { display: inline; }
+
+/* 화면 전환 (View Transitions 지원 브라우저) */
+::view-transition-old(root) { animation: vtOut .18s ease-in both; }
+::view-transition-new(root) { animation: vtIn .3s var(--ease) both; }
+@keyframes vtOut { to { opacity: 0; transform: translateY(-6px); } }
+@keyframes vtIn { from { opacity: 0; transform: translateY(8px); } }
+
+@media (max-width: 600px) {
+  .mbubble { max-width: 130px; font-size: 12.5px; }
+  .goal { padding: 4px 10px 4px 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
+}

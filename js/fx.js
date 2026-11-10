@@ -54,5 +54,34 @@ const FX = (() => {
       })(t0);
     });
   }
-  return { confetti, countUp, reduced };
+  /* 진동 피드백 (안드로이드 Chrome; 아이폰은 미지원 → 무시) */
+  let hapticOn = true;
+  function setHaptic(on) { hapticOn = !!on; }
+  function haptic(kind) {
+    if (!hapticOn || !navigator.vibrate) return;
+    try { navigator.vibrate(kind === 'bad' ? [18, 60, 18] : kind === 'goal' ? [12, 40, 12, 40, 30] : 10); } catch (e) {}
+  }
+  /* 오늘 목표 원형 링 */
+  function ring(done, goal, size) {
+    const r = 17, c = 2 * Math.PI * r, p = Math.min(1, goal ? done / goal : 0), sz = size || 46;
+    return `<svg class="goal-ring ${p >= 1 ? 'full' : ''}" viewBox="0 0 44 44" width="${sz}" height="${sz}">
+      <defs><linearGradient id="gr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9DB8D6"/><stop offset=".5" stop-color="#B9A9DC"/><stop offset="1" stop-color="#97CDA8"/></linearGradient></defs>
+      <circle cx="22" cy="22" r="${r}" class="ring-bg"/>
+      <circle cx="22" cy="22" r="${r}" class="ring-fg" stroke="url(#gr)" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - p)).toFixed(1)}" transform="rotate(-90 22 22)"/>
+      <text x="22" y="25.5" text-anchor="middle" class="ring-txt">${p >= 1 ? '✓' : Math.round(p * 100) + '%'}</text></svg>`;
+  }
+  /* 손가락으로 밀기 (카드 스와이프): onMove(dx,dy) · onEnd(dx,dy) */
+  function drag(el, { onMove, onEnd, enabled }) {
+    let sx = 0, sy = 0, on = false, moved = false, id = null;
+    el.addEventListener('pointerdown', e => { if (!enabled()) return; on = true; moved = false; sx = e.clientX; sy = e.clientY; id = e.pointerId; });
+    el.addEventListener('pointermove', e => {
+      if (!on || e.pointerId !== id) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!moved && Math.abs(dx) > 8) { moved = true; try { el.setPointerCapture(id); } catch (x) {} }
+      if (moved) { e.preventDefault(); onMove(dx, dy); }
+    });
+    const end = e => { if (!on || e.pointerId !== id) return; on = false; if (moved) { onEnd(e.clientX - sx, e.clientY - sy); el.dataset.dragged = '1'; setTimeout(() => delete el.dataset.dragged, 50); } };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  }
+  return { confetti, countUp, reduced, haptic, setHaptic, ring, drag };
 })();
