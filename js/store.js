@@ -13,7 +13,8 @@ const Store = (() => {
     rate: 0.9,           // 음성 속도
     proxy: '',           // GAS 프록시 URL (비우면 DEFAULT_PROXY)
     showPron: true,      // 발음 표기
-    autoplay: true       // 카드 표시 시 자동 듣기
+    autoplay: true,      // 카드 표시 시 자동 듣기
+    theme: 'light'       // 화면 테마: light | dark | auto
   });
   const def = () => ({ settings: defSettings(), progress: {}, log: {}, stars: {}, custom: [], talk: [] });
   let mem = def();

@@ -119,6 +119,7 @@
   }
   function shadowBox(res) {
     const pass = res.pct >= 80;
+    if (res.pct >= 90) setTimeout(() => FX.confetti(0.6), 50);
     return `<div class="shadow-res ${pass ? 'ok' : 'ng'}">
       <b>${t('scoreLbl', { n: res.pct.toFixed(1) })}</b> · ${pass ? t('passShadow') : t('failShadow')}
       ${diffHtml(res)}<div class="note">${t('heardTxt', { a: esc(res.said) })}</div></div>`;
@@ -126,6 +127,10 @@
 
   function boxLabel(b) { return b < 0 ? t('bNone') : b >= 3 ? t('bDone') : t('bIng'); }
   function boxClass(b) { return b < 0 ? 'b-none' : b >= 3 ? 'b-done' : 'b-ing'; }
+
+  /* ---------- 테마 ---------- */
+  function applyTheme() { document.documentElement.dataset.theme = L().theme || 'light'; }
+  applyTheme();
 
   /* ---------- 상단: 화면 언어 / 학습 언어 / 뜻 언어 ---------- */
   function drawChrome() {
@@ -188,7 +193,7 @@
   let S = null;
   function newSession(extra, onlyCards) {
     const q = onlyCards ? { due: SRS.shuffle(onlyCards.slice()), fresh: [] } : SRS.buildQueue(usable(), st, extra);
-    S = { weak: !!onlyCards,
+    S = { weak: !!onlyCards, anim: true,
       queue: q.due.map(c => ({ c, kind: 'due' })).concat(q.fresh.map(c => ({ c, kind: 'new' }))),
       idx: 0, flipped: false, done: 0, again: 0, dueN: q.due.length, newN: q.fresh.length
     };
@@ -205,6 +210,7 @@
         <div class="row center gap wrap"><button class="btn blue" id="more" type="button">${t('more10')}</button>
         <a class="btn" href="#quiz">${t('goQuiz')}</a><a class="btn" href="#stats">${t('tabStats')}</a></div></div>`;
       $('#more').onclick = () => { newSession(10); if (!S.queue.length) toast(t('noMoreNew')); drawStudy(true); };
+      if (S.done > 0 && !S.celebrated) { S.celebrated = true; FX.confetti(); }
       return;
     }
     const item = S.queue[S.idx], c = item.c;
@@ -219,24 +225,29 @@
         <span class="pill">${t('left')} ${remain}</span><span class="cat">${esc(catName(c.cat))}</span>
       </div>
       <div class="bar"><i style="width:${pct}%"></i></div>
-      <button class="card ${S.flipped ? 'flipped' : ''}" id="card" type="button">
-        <span class="tag tag-${item.kind}">${kindTxt}</span>
-        <span class="face-main lang-${front}">${esc(c[front])}</span>
-        ${s.showPron && pron(c, front) ? `<span class="pron">${esc(pron(c, front))}</span>` : ''}
-        ${S.flipped ? `<span class="divider"></span><span class="face-back lang-${back}">${esc(c[back])}</span>
-          ${s.showPron && pron(c, back) ? `<span class="pron">${esc(pron(c, back))}</span>` : ''}`
-          : `<span class="hint">${t('tapToFlip')}</span>`}
+      <button class="card3d ${S.flipped ? 'flipped' : ''} ${S.anim ? 'card-in' : ''}" id="card" type="button">
+        <span class="card-inner">
+          <span class="face front">
+            <span class="tag tag-${item.kind}">${kindTxt}</span>
+            <span class="face-main lang-${front}">${esc(c[front])}</span>
+            ${s.showPron && pron(c, front) ? `<span class="pron">${esc(pron(c, front))}</span>` : ''}
+            <span class="hint">👆 ${t('tapToFlip')}</span>
+          </span>
+          <span class="face back">
+            <span class="tag tag-${item.kind}">${kindTxt}</span>
+            <span class="face-small lang-${front}">${esc(c[front])}</span>
+            ${s.showPron && pron(c, front) ? `<span class="pron">${esc(pron(c, front))}</span>` : ''}
+            <span class="divider"></span>
+            <span class="face-back lang-${back}">${esc(c[back])}</span>
+            ${s.showPron && pron(c, back) ? `<span class="pron">${esc(pron(c, back))}</span>` : ''}
+          </span>
+        </span>
       </button>
       ${S.weak ? `<div class="weak-banner">${t('weakSession', { n: S.dueN })}</div>` : ''}
       <div class="row center gap wrap"><button class="btn round" id="play" type="button">🔊 ${t('listenLang', { lang: ln(s.target) })}</button>
         <button class="btn round mic-s" id="shadow" type="button">${t('speakNow')}</button></div>
       <div id="shadowRes"></div>
-      ${S.flipped
-        ? `<div class="grade">
-            <button class="btn red" data-g="0" type="button">${t('g0')}<small>${t('seeAgain')}</small></button>
-            <button class="btn yellow" data-g="1" type="button">${t('g1')}<small>${t('afterDays', { n: 1 })}</small></button>
-            <button class="btn green" data-g="2" type="button">${t('g2')}<small>${t('afterDays', { n: SRS.nextDays(st, c) })}</small></button></div>`
-        : `<div class="grade"><button class="btn blue wide" id="flip" type="button">${t('showMeaning')}</button></div>`}
+      <div id="gradeArea">${gradeHtml(c)}</div>
       <p class="keys">${t('keys', { g0: t('g0'), g1: t('g1'), g2: t('g2') })}</p>`;
     pre(c, s.target);
     for (let k = 1; k <= 2; k++) { const nx = S.queue[S.idx + k]; if (nx) pre(nx.c, s.target); }
@@ -246,22 +257,40 @@
       logShadow(res.pct); if (res.pct < 80) { const p = SRS.getP(st, c); if (p) p.lapses++; }
       save(); $('#shadowRes').innerHTML = shadowBox(res);
     });
-    if ($('#flip')) $('#flip').onclick = flip;
-    $$('#view-study [data-g]').forEach(b => b.onclick = () => grade(+b.dataset.g));
+    bindGrade();
+    S.anim = false;
     if (autoplay && s.autoplay && !S.flipped && front === s.target) say(c, s.target);
   }
+  function gradeHtml(c) {
+    return S.flipped
+      ? `<div class="grade grade-in">
+          <button class="btn red" data-g="0" type="button">😵 ${t('g0')}<small>${t('seeAgain')}</small></button>
+          <button class="btn yellow" data-g="1" type="button">🤔 ${t('g1')}<small>${t('afterDays', { n: 1 })}</small></button>
+          <button class="btn green" data-g="2" type="button">😊 ${t('g2')}<small>${t('afterDays', { n: SRS.nextDays(st, c) })}</small></button></div>`
+      : `<div class="grade"><button class="btn blue wide" id="flip" type="button">${t('showMeaning')}</button></div>`;
+  }
+  function bindGrade() {
+    if ($('#flip')) $('#flip').onclick = flip;
+    $$('#view-study [data-g]').forEach(b => b.onclick = () => grade(+b.dataset.g));
+  }
   function flip() {
-    if (!S || S.flipped || !cur()) return;
+    if (!S || S.flipped || !cur() || S.busy) return;
     S.flipped = true;
-    drawStudy(false);
+    $('#card').classList.add('flipped');
+    $('#gradeArea').innerHTML = gradeHtml(cur()); bindGrade();
     if (L().autoplay && L().front === 'native') say(cur(), L().target);
   }
   function grade(g) {
-    const c = cur(); if (!c || !S.flipped) return;
+    const c = cur(); if (!c || !S.flipped || S.busy) return;
     SRS.grade(st, c, g);
     if (g === 0) { S.queue.push({ c, kind: 'again' }); S.again++; }
-    S.done++; S.idx++; S.flipped = false;
-    save(); drawStudy(true);
+    S.done++; save();
+    S.busy = true;
+    const card = $('#card');
+    const done = () => { S.busy = false; S.idx++; S.flipped = false; S.anim = true; drawStudy(true); };
+    if (FX.reduced() || !card) return done();
+    card.classList.add(g === 2 ? 'out-good' : g === 0 ? 'out-bad' : 'out-mid');
+    setTimeout(done, 260);
   }
   document.addEventListener('keydown', e => {
     if (!$('#view-study').classList.contains('active')) return;
@@ -425,9 +454,10 @@
     const el = $('#view-quiz'), s = L();
     const acc = Q.qs.length ? (Q.ok / Q.qs.length * 100).toFixed(1) : '0.0';
     const wrong = Q.qs.filter(q => q.pick !== q.ans);
+    if (+acc >= 80 && !Q.celebrated) { Q.celebrated = true; setTimeout(() => FX.confetti(+acc === 100 ? 1.6 : 1), 150); }
     el.innerHTML = `<div class="panel center">
       <h2>${t('qResult')}</h2>
-      <div class="score"><b class="${+acc >= 80 ? 'blue-t' : 'red-t'}">${acc}%</b><span>${t('scoreTxt', { a: Q.ok, b: Q.qs.length })}</span></div>
+      <div class="score"><b class="${+acc >= 80 ? 'blue-t' : 'red-t'}" data-count="${acc}" data-dec="1" data-suffix="%">${acc}%</b><span>${t('scoreTxt', { a: Q.ok, b: Q.qs.length })}</span></div>
       ${wrong.length ? `<table class="tbl"><thead><tr><th>${esc(ln(s.target))}</th><th>${esc(ln(s.native))}</th><th>🔊</th></tr></thead><tbody>
         ${wrong.map(q => `<tr><td class="lang-${s.target}">${esc(q.c[s.target])}${pron(q.c, s.target) ? `<br><span class="pron">${esc(pron(q.c, s.target))}</span>` : ''}</td><td>${esc(q.c[s.native])}</td>
         <td><button class="ic" data-play="${q.c.id}" type="button">🔊</button></td></tr>`).join('')}</tbody></table>
@@ -435,6 +465,7 @@
       <div class="row center gap wrap"><button class="btn blue" id="qAgain" type="button">${t('qAgain')}</button>
       <button class="btn" id="qSetup" type="button">${t('qChange')}</button><button class="btn" id="qStudy" type="button">${t('qReview')}</button></div></div>`;
     $$('#view-quiz [data-play]').forEach(b => b.onclick = () => { const c = allCards().find(x => x.id === b.dataset.play); if (c) say(c, s.target); });
+    FX.countUp($('#view-quiz'));
     $('#qAgain').onclick = startQuiz;
     $('#qSetup').onclick = () => { Q = null; drawQuizSetup(); };
     $('#qStudy').onclick = () => { S = null; location.hash = '#study'; };
@@ -830,7 +861,7 @@
     const weak = weakCards(10);
     el.innerHTML = `
       <h2 class="sec">${t('statsTitle', { lang: esc(ln(s.target)) })} <span class="sub">${t('basis', { n: cards.length })}</span></h2>
-      <div class="tiles">${tiles.map(x => `<div class="tile"><span>${x[0]}</span><b class="${x[3]}">${x[1]}<small>${x[2]}</small></b></div>`).join('')}</div>
+      <div class="tiles">${tiles.map((x, i) => `<div class="tile" style="--d:${i * 60}ms"><span>${x[0]}</span><b class="${x[3]}"><em data-count="${x[1]}" data-dec="${String(x[1]).includes('.') ? 1 : 0}">${x[1]}</em><small>${x[2]}</small>${i === 5 && +x[1] >= 2 ? ' <i class="flame">🔥</i>' : ''}</b></div>`).join('')}</div>
       <div class="panel">
         <div class="chart-head"><h3 id="chartTitle"></h3>
           <div class="chips">
@@ -860,6 +891,7 @@
       </div>`;
     $$('#view-stats [data-wplay]').forEach(b => b.onclick = () => { const c = allCards().find(x => x.id === b.dataset.wplay); if (c) say(c, s.target); });
     if ($('#weakGo')) $('#weakGo').onclick = () => { newSession(0, weakCards(20).map(x => x.c)); location.hash = '#study'; };
+    FX.countUp($('#view-stats'));
     $('#sKpi').value = SC.kpi; $('#sDays').value = SC.days;
     $('#sKpi').onchange = e => { SC.kpi = e.target.value; drawChart(); };
     $('#sDays').onchange = e => { SC.days = +e.target.value; drawChart(); };
@@ -891,7 +923,7 @@
       if (v > 0) g += `<text x="${x + w / 2}" y="${yy - 5}" class="vl" text-anchor="middle">${v.toFixed(k.dec)}</text>`;
       if (SC.days <= 14 || i % 3 === 0 || i === vals.length - 1) g += `<text x="${x + w / 2}" y="${H - 10}" class="ax" text-anchor="middle">${lbl}</text>`;
     });
-    $('#chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="${esc(t('trend', { k: name }))}">${g}</svg>
+    $('#chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="chart grow" role="img" aria-label="${esc(t('trend', { k: name }))}">${g}</svg>
       <p class="note">${t('chartNote', { u: esc(unit) })}</p>`;
   }
 
@@ -909,6 +941,8 @@
           <div><label class="lbl" for="sTarget">${t('targetLang')}</label><select id="sTarget">${I18N.ORDER.map(k => `<option value="${k}">${LANGS[k].flag} ${esc(ln(k))}</option>`).join('')}</select></div>
           <div><label class="lbl" for="sNative">${t('nativeLang')}</label><select id="sNative">${I18N.ORDER.filter(k => k !== s.target).map(k => `<option value="${k}">${LANGS[k].flag} ${esc(ln(k))}</option>`).join('')}</select></div>
           <div><label class="lbl" for="sFront">${t('cardFront')}</label><select id="sFront"><option value="target">${t('frontTarget')}</option><option value="native">${t('frontNative')}</option></select></div>
+          <div><label class="lbl" for="sTheme">${t('theme')}</label><select id="sTheme">
+            <option value="light">☀️ ${t('themeLight')}</option><option value="dark">🌙 ${t('themeDark')}</option><option value="auto">🖥 ${t('themeAuto')}</option></select></div>
           <div><label class="lbl" for="sNew">${t('newPerDay')}</label><select id="sNew">${[5, 10, 15, 20, 30].map(n => `<option value="${n}">${t('nCards', { n })}</option>`).join('')}</select></div>
         </div>
         <label class="check"><input type="checkbox" id="sPron"> ${t('showPron')}</label>
@@ -948,6 +982,8 @@
       </div>`;
     $('#sUi').value = s.ui; $('#sTarget').value = s.target; $('#sNative').value = s.native; $('#sFront').value = s.front; $('#sNew').value = String(s.newPerDay);
     $('#sPron').checked = s.showPron; $('#sAuto').checked = s.autoplay;
+    $('#sTheme').value = s.theme || 'light';
+    $('#sTheme').onchange = e => { s.theme = e.target.value; save(); applyTheme(); };
     $('#sUi').onchange = e => setUi(e.target.value);
     $('#phrRefresh').onclick = () => fetchPhrases(true).then(() => { if ($('#view-setup').classList.contains('active')) R.setup(); });
     if ($('#pwaBtn')) $('#pwaBtn').onclick = () => PWA.prompt().then(() => R.setup());
