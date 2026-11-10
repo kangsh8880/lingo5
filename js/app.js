@@ -227,7 +227,7 @@
     el.innerHTML = `
       <div class="study-top">
         <div class="goal">${FX.ring(today, goal)}<div class="goal-txt"><b>${t('goalLbl')}</b><span><em>${today}</em> / ${goal}</span></div></div>
-        <div id="mascotBox">${Mascot.html(S.mood, S.msg, 52)}</div>
+        <div id="mascotBox">${Mascot.html(S.mood, S.msg, 60)}</div>
       </div>
       <div class="meta">
         <span class="pill blue">${t('due')} ${S.dueN}</span><span class="pill green">${t('new')} ${S.newN}</span>
@@ -262,11 +262,17 @@
     for (let k = 1; k <= 2; k++) { const nx = S.queue[S.idx + k]; if (nx) pre(nx.c, s.target); }
     const cardEl = $('#card');
     cardEl.onclick = () => { if (!cardEl.dataset.dragged) flip(); };
-    cardEl.dataset.good = t('g2'); cardEl.dataset.bad = t('g0');
+    cardEl.dataset.good = t('g2'); cardEl.dataset.bad = t('g0'); cardEl.dataset.mid = t('g1');
     FX.drag(cardEl, {
       enabled: () => S.flipped && !S.busy,
-      onMove: dx => { cardEl.style.transition = 'none'; cardEl.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`; cardEl.dataset.dir = dx > 50 ? 'good' : dx < -50 ? 'bad' : ''; },
-      onEnd: dx => {
+      onMove: (dx, dy) => {
+        const up = dy < 0 && -dy > Math.abs(dx);
+        cardEl.style.transition = 'none';
+        cardEl.style.transform = up ? `translateY(${dy}px) scale(${Math.max(.92, 1 + dy / 1200)})` : `translateX(${dx}px) rotate(${dx / 22}deg)`;
+        cardEl.dataset.dir = up ? (dy < -50 ? 'mid' : '') : dx > 50 ? 'good' : dx < -50 ? 'bad' : '';
+      },
+      onEnd: (dx, dy) => {
+        if (dy < -90 && -dy > Math.abs(dx)) return grade(1, 0, true);
         if (dx > 90) return grade(2, dx);
         if (dx < -90) return grade(0, dx);
         cardEl.style.transition = ''; cardEl.style.transform = ''; cardEl.dataset.dir = '';
@@ -303,9 +309,9 @@
   }
   function setMood(mood, msg) {
     S.mood = mood; S.msg = msg;
-    const box = $('#mascotBox'); if (box) box.innerHTML = Mascot.html(mood, msg, 52);
+    const box = $('#mascotBox'); if (box) box.innerHTML = Mascot.html(mood, msg, 60);
   }
-  function grade(g, swipeDx) {
+  function grade(g, swipeDx, swipeUp) {
     const c = cur(); if (!c || !S.flipped || S.busy) return;
     SRS.grade(st, c, g);
     if (g === 0) { S.queue.push({ c, kind: 'again' }); S.again++; }
@@ -320,7 +326,10 @@
     const card = $('#card');
     const done = () => { S.busy = false; S.idx++; S.flipped = false; S.anim = true; drawStudy(true); };
     if (FX.reduced() || !card) return done();
-    if (swipeDx) {
+    if (swipeUp) {
+      card.style.transition = 'transform .28s ease-in, opacity .28s';
+      card.style.transform = 'translateY(-420px) scale(.9)'; card.style.opacity = '0';
+    } else if (swipeDx) {
       card.style.transition = 'transform .28s ease-in, opacity .28s';
       card.style.transform = `translateX(${Math.sign(swipeDx) * 520}px) rotate(${Math.sign(swipeDx) * 18}deg)`;
       card.style.opacity = '0';

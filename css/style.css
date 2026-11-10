@@ -533,6 +533,8 @@ svg.grow .br:nth-of-type(3n) { animation-delay: .08s; }
 .card3d::before { content: attr(data-good) ' 😊'; right: 18px; color: #2F7A50; border-color: #97CDA8; background: var(--p-green); transform: rotate(8deg); }
 .card3d::after { content: '😵 ' attr(data-bad); left: 18px; color: var(--red); border-color: #E8A3AE; background: var(--p-pink); transform: rotate(-8deg); }
 .card3d[data-dir="good"]::before, .card3d[data-dir="bad"]::after { opacity: 1; }
+.card3d[data-dir="mid"]::before { content: '🤔 ' attr(data-mid); opacity: 1; right: 50%; transform: translateX(50%); color: #8A6A1E; border-color: #F1D58C; background: var(--p-yellow); }
+.card3d.flipped { touch-action: none; }
 .swipe-hint { display: none; color: var(--blue); font-weight: 500; }
 .card3d.flipped ~ #gradeArea + .keys .swipe-hint { display: inline; }
 #view-study:has(.card3d.flipped) .swipe-hint { display: inline; }
@@ -550,3 +552,10 @@ svg.grow .br:nth-of-type(3n) { animation-delay: .08s; }
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
 }
+/* 입말이 v2: 소리 파동이 말하듯 퍼짐 */
+.m-wave path { animation: mWave 1.8s ease-in-out infinite; }
+.m-wave path:nth-child(2) { animation-delay: .2s; }
+.m-wave path:nth-child(3) { animation-delay: .4s; }
+@keyframes mWave { 0%, 100% { opacity: .35; } 40% { opacity: 1; } }
+.m-oops .m-wave path { animation: none; opacity: .25; }
+.m-party .m-wave path, .m-happy .m-wave path { animation-duration: .9s; }

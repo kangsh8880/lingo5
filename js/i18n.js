@@ -123,7 +123,7 @@ const I18N = (() => {
     mShadowGood: ['발음 좋아요!', 'Phát âm hay lắm!', 'Great pronunciation!', '发音很好！', '発音いいね！'],
     mShadowTry: ['한 번 더 따라 해봐요', 'Thử nói lại lần nữa nhé', 'Try repeating once more', '再跟读一次吧', 'もう一度まねしてみよう'],
     mThink: ['뜻이 기억나나요?', 'Bạn nhớ nghĩa không?', 'Do you remember the meaning?', '还记得意思吗？', '意味、覚えていますか？'],
-    swipeHint: ['← 모름 · 카드를 밀어서 평가 · 알아요 →', '← Vuốt: Không nhớ · Đã nhớ →', '← Swipe: Don\'t know · Know it →', '← 左滑不会 · 右滑会了 →', '← スワイプ：わからない · わかる →'],
+    swipeHint: ['← 모름 · ↑ 애매 · 알아요 →  (카드를 밀어서 평가)', '← Không nhớ · ↑ Mơ hồ · Đã nhớ → (vuốt thẻ)', '← Don\'t know · ↑ Unsure · Know it → (swipe the card)', '← 不会 · ↑ 模糊 · 会了 →（滑动卡片）', '← わからない · ↑ あいまい · わかる →（カードをスワイプ）'],
     goalLbl: ['오늘 목표', 'Mục tiêu hôm nay', "Today's goal", '今日目标', '今日の目標'],
     dailyGoal: ['하루 목표 (카드 수)', 'Mục tiêu mỗi ngày (số thẻ)', 'Daily goal (cards)', '每日目标（卡片数）', '1日の目標（カード数）'],
     hapticLbl: ['진동 피드백 (안드로이드)', 'Rung phản hồi (Android)', 'Haptic feedback (Android)', '振动反馈（安卓）', '振動フィードバック（Android）'],

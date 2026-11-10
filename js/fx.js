@@ -77,7 +77,7 @@ const FX = (() => {
     el.addEventListener('pointermove', e => {
       if (!on || e.pointerId !== id) return;
       const dx = e.clientX - sx, dy = e.clientY - sy;
-      if (!moved && Math.abs(dx) > 8) { moved = true; try { el.setPointerCapture(id); } catch (x) {} }
+      if (!moved && (Math.abs(dx) > 8 || dy < -8)) { moved = true; try { el.setPointerCapture(id); } catch (x) {} }
       if (moved) { e.preventDefault(); onMove(dx, dy); }
     });
     const end = e => { if (!on || e.pointerId !== id) return; on = false; if (moved) { onEnd(e.clientX - sx, e.clientY - sy); el.dataset.dragged = '1'; setTimeout(() => delete el.dataset.dragged, 50); } };
