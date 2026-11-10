@@ -2,7 +2,7 @@
 const I18N = (() => {
   const ORDER = ['ko', 'vi', 'en', 'zh', 'ja'];
   const D = {
-    appTitle: ['5개국어 학습카드', 'Thẻ học 5 ngôn ngữ', '5-Language Flashcards', '五国语言学习卡', '5か国語学習カード'],
+    appTitle: ['입말', 'Ipmal', 'Ipmal', 'Ipmal', 'Ipmal'],
     uiLang: ['화면 언어', 'Ngôn ngữ giao diện', 'Display language', '界面语言', '表示言語'],
     targetLang: ['학습 언어', 'Ngôn ngữ học', 'Learning language', '学习语言', '学習言語'],
     nativeLang: ['뜻 언어', 'Ngôn ngữ nghĩa', 'Meaning language', '释义语言', '意味の言語'],
